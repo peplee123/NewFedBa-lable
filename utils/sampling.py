@@ -84,11 +84,12 @@ def mnist_noniid(dataset, num_users):
     # if dict_users == {}:
     #     return "Error"
     # return dict_users
-    dict_users = {}
-    num_shards, num_imgs = num_users * 2, int(len(dataset) / (num_users * 2))
+    n_class = 2
+    num_shards, num_imgs = num_users * n_class, int(len(dataset) / (num_users * n_class))
     idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
-    idxs = np.arange(num_shards * num_imgs)
+    train_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
+    test_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
+    idxs = np.arange(len(dataset))
     labels = dataset.train_labels.numpy()
 
     # sort labels
@@ -98,11 +99,12 @@ def mnist_noniid(dataset, num_users):
 
     # divide and assign
     for i in range(num_users):
-        rand_set = set(np.random.choice(idx_shard, 2, replace=False))
+        rand_set = set(np.random.choice(idx_shard, n_class, replace=False))
         idx_shard = list(set(idx_shard) - rand_set)
         for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand * num_imgs:(rand + 1) * num_imgs]), axis=0)
-    return dict_users
+            data = np.concatenate((train_dict_users[i], idxs[rand * num_imgs:(rand + 1) * num_imgs]), axis=0)
+            train_dict_users[i], test_dict_users[i] = data[:int(0.8*len(data))], data[int(0.8*len(data)):]
+    return train_dict_users, test_dict_users
 
 
 def fashion_iid(dataset, num_users):
@@ -183,6 +185,7 @@ def cifar_iid(dataset, num_users):
         return "Error"
     return dict_users
 
+
 def cifar_noniid(dataset, num_users):
     """
     Sample non-I.I.D client data from CIFAR10 dataset
@@ -215,6 +218,8 @@ def cifar_noniid(dataset, num_users):
     if dict_users == {}:
         return "Error"
     return dict_users
+
+
 def bingtai_mnist(dataset,num_clients, num_classes_per_client, num_samples_per_class):
     # 加载MNIST数据集
     # train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True)
@@ -280,14 +285,16 @@ def draw_data_distribution(dict_users, dataset, num_class):
     plt.show()
 
 
-
-
-
-
 if __name__ == '__main__':
+
     trans_fashion_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
+
     dataset_train = datasets.FashionMNIST('../data/fashion-mnist', train=True, download=True,
                                           transform=trans_fashion_mnist)
+
+    train_dict_users, test_dict_users = mnist_noniid(dataset_train, 10)
+    draw_data_distribution(train_dict_users, dataset_train, 10)
+    draw_data_distribution(test_dict_users, dataset_train, 10)
     # num = 100
     # d = mnist_iid(dataset_train, num)
     # path = '../data/fashion_iid_100clients.dat'
@@ -300,6 +307,6 @@ if __name__ == '__main__':
     # file.close()
     # trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
     # dataset_train = datasets.MNIST('../data/mnist/', train=True, download=True, transform=trans_mnist)
-    print(fashion_iid(dataset_train, 1000)[0])
+    # print(fashion_iid(dataset_train, 1000)[0])
 
 

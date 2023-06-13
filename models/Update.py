@@ -5,15 +5,9 @@
 import torch
 from torch import nn, autograd
 from torch.utils.data import DataLoader, Dataset
-import numpy as np
-import random
-import copy
-from sklearn import metrics
-from .Fed import  weight_flatten
+from models.test import test_img
 import torch.nn.functional as F
-# kl_loss = nn.KLDivLoss(reduction="batchmean")
-LogSoftmax = nn.LogSoftmax(dim=1)
-Softmax = nn.Softmax(dim=1)
+
 
 
 def distillation_loss(outputs, teacher_outputs, temperature):
@@ -21,6 +15,8 @@ def distillation_loss(outputs, teacher_outputs, temperature):
     log_probs = nn.functional.log_softmax(outputs, dim=1)
     loss = nn.functional.kl_div(log_probs, soft_labels, reduction='batchmean') * temperature ** 2
     return loss
+
+
 class DatasetSplit(Dataset):
     def __init__(self, dataset, idxs):
         self.dataset = dataset
@@ -35,13 +31,12 @@ class DatasetSplit(Dataset):
 
 
 class LocalUpdate(object):
-    def __init__(self, args, dataset=None, idxs=None):
+    def __init__(self, args, dataset=None, idxs=None, test_idxs=None):
         self.args = args
         self.loss_func = nn.CrossEntropyLoss()
         self.selected_clients = []
         self.ldr_train = DataLoader(DatasetSplit(dataset, idxs), batch_size=self.args.local_bs, shuffle=True)
-
-
+        self.ldr_test = DataLoader(DatasetSplit(dataset, test_idxs), batch_size=self.args.local_bs, shuffle=False)
 
     def train(self, net):
         net.train()
@@ -101,11 +96,12 @@ class LocalUpdate(object):
 
                 batch_loss.append(loss.item())
                 # print("loss: ", loss)
-            # print("batch_loss: ", batch_loss)
             epoch_loss.append(sum(batch_loss)/len(batch_loss))
         # print("epoch_loss: ", epoch_loss)
         sum_ = sum(total_local_probs)
         total_local_probs = torch.tensor([p/sum_ for p in total_local_probs])
         everyclient_distributed.append(total_local_probs)
+        accuracy, test_loss = test_img(net, self.ldr_test.dataset, self.args)
+        # print(f"batch_loss: {sum(batch_loss) / len(batch_loss)}, acc: {accuracy}, test_loss: {test_loss}", )
         # return net, sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
         return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed

@@ -11,11 +11,11 @@ from torchvision import datasets, transforms
 import torch
 import os
 import random
-from utils.sampling import mnist_iid, mnist_noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist
+from utils.sampling import mnist_iid, mnist_noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist, draw_data_distribution
 from utils.options import args_parser
 from models.Update import LocalUpdate
 from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM
-from models.Fed import FedAvg,FedBa,NewFedBa,interpolate_models
+from models.Fed import FedAvg,FedBa,NewFedBa, cluster_dbscan
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare
 
@@ -29,15 +29,18 @@ if __name__ == '__main__':
         trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
         dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True, transform=trans_mnist)
         dataset_test = datasets.MNIST('./data/mnist/', train=False, download=True, transform=trans_mnist)
-        print(len(dataset_train),"data")
+        print(len(dataset_train))
+        print(len(dataset_test))
         # sample users
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
             # dict_users = build_noniid(dataset_train, args.num_users, 1)
-            dict_users = mnist_noniid(dataset_train, args.num_users)
+            train_dict_users, test_dict_users = mnist_noniid(dataset_train, args.num_users)
+            draw_data_distribution(train_dict_users, dataset_train, 10)
+            draw_data_distribution(test_dict_users, dataset_train, 10)
             # dict_users = bingtai_mnist(dataset_train, args.num_users,2,random.randint(200, 2500))
-            for client_id, indices in dict_users.items():
+            for client_id, indices in train_dict_users.items():
                 print(f"Client {client_id}: {indices}")
     elif args.dataset == 'cifar10':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
@@ -145,6 +148,22 @@ if __name__ == '__main__':
     acc_test = []
     loss_train = []
     learning_rate = [args.lr for i in range(args.num_users)]
+
+    # local_model_list = [copy.deepcopy(net_glob) for _ in range(args.num_users)]
+    #
+    # allclient_distributed = []
+    # for idx in train_dict_users:
+    #     print(f"start client {idx}")
+    #     local_args = copy.deepcopy(args)
+    #     local_args.local_ep = 100
+    #     local = LocalUpdate(args=local_args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
+    #     w, loss, curLR, everyclient_distributed = local.train(net=copy.deepcopy(local_model_list[idx]).to(args.device))
+    #     local_model_list[idx] = copy.deepcopy(net_glob.load_state_dict(w))
+    #     allclient_distributed.append(everyclient_distributed)
+    #
+    # cluster_labels = cluster_dbscan(allclient_distributed)
+    # print(cluster_labels)
+
     for iter in range(args.epochs):
         allclient_distributed = []
         w_locals, loss_locals = [], []
@@ -158,7 +177,7 @@ if __name__ == '__main__':
                     c_id = cluster_id
                     break
             args.lr = learning_rate[idx]
-            local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx])
+            local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users)
             w, loss, curLR,everyclient_distributed = local.train(net=copy.deepcopy(cluster_model_list[c_id]).to(args.device))
             learning_rate[idx] = curLR
             w_locals.append(copy.deepcopy(w))
@@ -167,7 +186,7 @@ if __name__ == '__main__':
         # new_allclient_distributed = list(map(lambda x: list(map(float, x[0])), allclient_distributed))
         tensor_list = [item[0] for item in allclient_distributed]
 
-        print("传入聚类的数据",tensor_list)
+        # print("传入聚类的数据",tensor_list)
 
         # w_glob = FedAvg(w_locals)
         print("正常的全局模型聚合完毕")
@@ -214,7 +233,6 @@ if __name__ == '__main__':
         # loss_avg = sum(loss_locals) / len(loss_locals)
         # print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
         # loss_train.append(loss_avg)
-
 
 
     rootpath = './log'

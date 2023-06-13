@@ -4,49 +4,13 @@
 
 import copy
 import torch
-from torch import nn
 import math
-import numpy as np
 from sklearn.cluster import KMeans
-import torch.nn.functional as F
-# from sklearn.mixture import GaussianMixture
-# from .clusters import make_cluster_cengci
-class CNNMnist(nn.Module):
-    def __init__(self):
-        super(CNNMnist, self).__init__()
-        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, 10)
-
-    def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, x.shape[1]*x.shape[2]*x.shape[3])
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
-def interpolate_models(local_model, global_model, alpha):
-    """
-    进行模型插值，将本地模型和全局模型按照给定比例进行融合
-
-    参数:
-        local_model: 本地模型
-        global_model: 全局模型
-        alpha: 模型插值的比例因子，取值范围为 [0, 1]，0 表示完全使用全局模型，1 表示完全使用本地模型
-
-    返回:
-        interpolated_model: 插值后的模型
-    """
-    interpolated_model = CNNMnist()
-
-    # 执行模型插值
-    for local_param, global_param in zip(local_model.parameters(), global_model.parameters()):
-        interpolated_param = alpha * local_param.data + (1 - alpha) * global_param.data
-        global_param.data.copy_(interpolated_param)
-    return interpolated_model
+import numpy as np
+from sklearn.cluster import DBSCAN
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
 
 
 def FedAvg(w):
@@ -56,6 +20,7 @@ def FedAvg(w):
             w_avg[k] += w[i][k]
         w_avg[k] = torch.div(w_avg[k], len(w))
     return w_avg
+
 
 def wasserstein_distance(p, q):
     p = torch.FloatTensor(p)
@@ -200,14 +165,12 @@ def NewFedBa(w_locals, client_distributed):
     client_distributed = client_distributed.cpu()
     print(client_distributed)
 
-
     # index_dict = make_cluster_cengci(client_distributed)
-
-
     # kmeans = KMeans(n_clusters=num_clusters, max_iter=num_iterations)
     # labels = kmeans.fit_predict(client_distributed.numpy())
-    labels = wasserstein_kmeans(client_distributed.numpy(), n_clusters=num_clusters)
-    print(labels)
+    # labels = wasserstein_kmeans(client_distributed.numpy(), n_clusters=num_clusters)
+    draw_distributed(client_distributed)
+    labels = cluster_dbscan(client_distributed.numpy(), eps=0.05, min_samples=5)
     print(labels)
 
     index_dict = {}
@@ -217,7 +180,6 @@ def NewFedBa(w_locals, client_distributed):
         index_dict[labels[i]].append(i)
     print(index_dict)
 
-
     w_global_dict = {}
     # 将 w_locals[0] 转换为 PyTorch 张量
     w_locals_tensor = {}
@@ -225,6 +187,7 @@ def NewFedBa(w_locals, client_distributed):
         # w_locals_tensor[key] = torch.tensor(value)
         w_locals_tensor[key] = value.clone().detach().requires_grad_(True)
 
+    w_global_avg = FedAvg(w_locals)
     # 创建全 0 张量，并将其赋值给 w_avg
     w_avg = {}
     for key, value in w_locals_tensor.items():
@@ -233,7 +196,29 @@ def NewFedBa(w_locals, client_distributed):
         for k in w_avg.keys():
             for i in index_dict[j]:
                 w_avg[k] += w_locals[i][k]
-            w_avg[k] = torch.div(w_avg[k], len(index_dict[j]))
+            w_avg[k] = 0.8 * torch.div(w_avg[k], len(index_dict[j])) + 0.2 * w_global_avg[k]
         w_global_dict[j] = copy.deepcopy(w_avg)
 
     return w_global_dict, index_dict
+
+
+def cluster_dbscan(distributed, eps=0.1, min_samples=1):
+    print(distributed)
+    dbscan = DBSCAN(eps=eps, min_samples=min_samples)
+    dbscan.fit(distributed)
+    labels = dbscan.labels_
+    return labels
+
+
+def draw_distributed(distributed):
+    plt.figure(figsize=(10, 6))
+    sns.violinplot(data=distributed)
+    plt.title('Probability Distribution of Each Client')
+    plt.xlabel('Client')
+    plt.ylabel('Probability')
+
+    plt.savefig("1.jpg")
+
+
+if __name__ == '__main__':
+    cluster_dbscan([[0,0,0,0,0],[2,2,2,2,2],[3,3,3,3,3],[9,9,9,9,9]])
