@@ -102,6 +102,8 @@ class LocalUpdate(object):
         total_local_probs = torch.tensor([p/sum_ for p in total_local_probs])
         everyclient_distributed.append(total_local_probs)
         accuracy, test_loss = test_img(net, self.ldr_test.dataset, self.args)
+        print(accuracy)
+
         # print(f"batch_loss: {sum(batch_loss) / len(batch_loss)}, acc: {accuracy}, test_loss: {test_loss}", )
         # return net, sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
         return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed

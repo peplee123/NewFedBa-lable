@@ -37,11 +37,12 @@ if __name__ == '__main__':
         else:
             # dict_users = build_noniid(dataset_train, args.num_users, 1)
             train_dict_users, test_dict_users = mnist_noniid(dataset_train, args.num_users)
-            draw_data_distribution(train_dict_users, dataset_train, 10)
-            draw_data_distribution(test_dict_users, dataset_train, 10)
+            print(len(train_dict_users))
+            # draw_data_distribution(train_dict_users, dataset_train, 10)
+            # draw_data_distribution(test_dict_users, dataset_train, 10)
             # dict_users = bingtai_mnist(dataset_train, args.num_users,2,random.randint(200, 2500))
-            for client_id, indices in train_dict_users.items():
-                print(f"Client {client_id}: {indices}")
+            # for client_id, indices in train_dict_users.items():
+            #     print(f"Client {client_id}: {indices}")
     elif args.dataset == 'cifar10':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
@@ -97,17 +98,6 @@ if __name__ == '__main__':
             exit('Error: femnist dataset is naturally non-iid')
         else:
             print("Warning: The femnist dataset is naturally non-iid, you do not need to specify iid or non-iid")
-    elif args.dataset == 'shakespeare':
-        dataset_train = ShakeSpeare(train=True)
-        dataset_test = ShakeSpeare(train=False)
-        dict_users = dataset_train.get_client_dic()
-        args.num_users = len(dict_users)
-        if args.iid:
-            exit('Error: ShakeSpeare dataset is naturally non-iid')
-        else:
-            print("Warning: The ShakeSpeare dataset is naturally non-iid, you do not need to specify iid or non-iid")
-    else:
-        exit('Error: unrecognized dataset')
     img_size = dataset_train[0][0].shape
 
     # build model
@@ -116,10 +106,10 @@ if __name__ == '__main__':
     elif args.model == 'cnn' and args.dataset == 'cifar100':
         net_glob = CNNCifar(args=args).to(args.device)
     elif args.model == 'cnn' and (args.dataset == 'mnist' or args.dataset == 'fashion-mnist'):
-        # net_glob = torch.load('model_params.pth')
-        # net_glob = CNNMnist(args=args).to(args.device)  # 先定义相同结构的模型对象
-        # net_glob.load_state_dict(torch.load('model_params.pth', map_location=torch.device('cpu')))
-        net_glob = CNNMnist(args=args).to(args.device)
+        net_glob = torch.load('model80.pt')
+        net_glob = CNNMnist(args=args).to(args.device)  # 先定义相同结构的模型对象
+        net_glob.load_state_dict(torch.load('model_params.pth', map_location=torch.device('cpu')))
+        # net_glob = CNNMnist(args=args).to(args.device)
     elif args.dataset == 'femnist' and args.model == 'cnn':
         net_glob = CNNFemnist(args=args).to(args.device)
     elif args.dataset == 'shakespeare' and args.model == 'lstm':
@@ -149,27 +139,46 @@ if __name__ == '__main__':
     loss_train = []
     learning_rate = [args.lr for i in range(args.num_users)]
 
-    # local_model_list = [copy.deepcopy(net_glob) for _ in range(args.num_users)]
-    #
-    # allclient_distributed = []
-    # for idx in train_dict_users:
-    #     print(f"start client {idx}")
-    #     local_args = copy.deepcopy(args)
-    #     local_args.local_ep = 100
-    #     local = LocalUpdate(args=local_args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
-    #     w, loss, curLR, everyclient_distributed = local.train(net=copy.deepcopy(local_model_list[idx]).to(args.device))
-    #     local_model_list[idx] = copy.deepcopy(net_glob.load_state_dict(w))
-    #     allclient_distributed.append(everyclient_distributed)
-    #
-    # cluster_labels = cluster_dbscan(allclient_distributed)
-    # print(cluster_labels)
+    # 这里是仿照那个中文论文的框架写的预训练的代码
+    local_model_list = [copy.deepcopy(net_glob) for _ in range(args.num_users)]
 
+    allclient_distributed = []
+    for idx in train_dict_users:
+        print(f"start client {idx}")
+        local_args = copy.deepcopy(args)
+        local_args.local_ep = 3
+        local = LocalUpdate(args=local_args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
+        w, loss, curLR, everyclient_distributed = local.train(net=copy.deepcopy(local_model_list[idx]).to(args.device))
+        local_model_list[idx] = copy.deepcopy(net_glob.load_state_dict(w))
+        allclient_distributed.append(everyclient_distributed)
+
+    allclient_distributed = np.array([np.array(tensor.tolist()) for sublist in allclient_distributed for tensor in sublist])
+    print(allclient_distributed)
+    cluster_labels = cluster_dbscan(allclient_distributed)
+    print(cluster_labels)
+    index_dict = {}
+    for i in range(len(cluster_labels)):
+        if cluster_labels[i] not in index_dict:
+            index_dict[cluster_labels[i]] = []
+        index_dict[cluster_labels[i]].append(i)
+    print('index_dict', index_dict)
+#用完软预测做完聚类，我们后面是否还可以利用一些软预测来做聚合方式的修改
     for iter in range(args.epochs):
         allclient_distributed = []
         w_locals, loss_locals = [], []
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
         print('选取的客户端编号', idxs_users)
+        for key, value in index_dict.items():
+
+            print("Key:", key)
+            print("Values:")
+            for v in value:
+                print(v)
+            print("-----")
+
+
+
         for idx in idxs_users:
             c_id = 0
             for cluster_id,cluster_list in cluster_dict.items():
@@ -185,11 +194,7 @@ if __name__ == '__main__':
             allclient_distributed.append(everyclient_distributed)
         # new_allclient_distributed = list(map(lambda x: list(map(float, x[0])), allclient_distributed))
         tensor_list = [item[0] for item in allclient_distributed]
-
         # print("传入聚类的数据",tensor_list)
-
-        # w_glob = FedAvg(w_locals)
-        print("正常的全局模型聚合完毕")
         w_global_dict, index_dict = NewFedBa(w_locals, tensor_list)
         print("通过软标签聚类的全局模型聚合完毕")
         for k, idx_list in index_dict.items():

@@ -84,7 +84,7 @@ def mnist_noniid(dataset, num_users):
     # if dict_users == {}:
     #     return "Error"
     # return dict_users
-    n_class = 2
+    n_class =2
     num_shards, num_imgs = num_users * n_class, int(len(dataset) / (num_users * n_class))
     idx_shard = [i for i in range(num_shards)]
     train_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
