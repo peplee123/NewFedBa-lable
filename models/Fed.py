@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Python version: 3.6
-
+from scipy.spatial.distance import jensenshannon
+import numpy as np
+from scipy.cluster.hierarchy import linkage, fcluster
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.cluster.hierarchy import linkage, fcluster
 import copy
 import torch
 import math
@@ -109,150 +114,79 @@ def weight_flatten(model):
 
 
 def NewFedBa(w_locals, client_distributed):
-    #----------------------------------
-    # 通过数据的概率使用gmm去做聚类
-    # data = torch.cat([x.unsqueeze(0) for x in client_distributed])
-    #
-    # # 定义 GMM 模型，聚类数为 3
-    # gmm = GaussianMixture(n_components=4)
-    #
-    # # 训练模型
-    # gmm.fit(data)
-    #
-    # # 预测聚类
-    # labels = gmm.predict(data)
-    # print("gmm",labels)
-    #------------------------------------
-    # distances = []
-    # for i in range(len(client_distributed)):
-    #     distance_i = []
-    #     for j in range(len(client_distributed)):
-    #         if i != j:
-    #             distance = torch.dist(client_distributed[i], client_distributed[j])
-    #             distance_i.append(distance)
-    #         else:
-    #             distance_i.append(0.0)
-    #     distances.append(distance_i)
-    # print(distances)
-    # 这里是通过计算的距离取反比去做聚合更改方式的
-    # reciprocal_matrix = np.zeros_like(distances)
-    # for i in range(len(distances)):
-    #     reciprocal_matrix[i][i] = 0.5*np.sum([torch.reciprocal(x) for x in distances[i] if x != 0.0])
-    #     for j in range(len(distances[0])):
-    #         if i != j:
-    #             reciprocal_matrix[i][j] = torch.reciprocal(distances[i][j])
-    # print('-------------------------------')
-    # print(reciprocal_matrix)
-
-    # 这里是做的kmeans聚类的
-    num_clusters = 2
-    num_iterations = 50
+    # 将 client_distributed 转换为张量
     client_distributed = [item for item in client_distributed]
     client_distributed = torch.tensor([item.numpy() for item in client_distributed])
     client_distributed = client_distributed.cpu()
-    # print(client_distributed)
 
-    # index_dict = make_cluster_cengci(client_distributed)
+    # 将 client_distributed 转换为 NumPy 数组
+    data = client_distributed.numpy()
 
-    # kmeans = KMeans(n_clusters=num_clusters, max_iter=num_iterations)
-    # labels = kmeans.fit_predict(client_distributed.numpy())
+    # 计算样本之间的 Jensen-Shannon 距离
+    dist_matrix = np.zeros((data.shape[0], data.shape[0]))
+    for i in range(data.shape[0]):
+        for j in range(i + 1, data.shape[0]):
+            dist = jensenshannon(data[i], data[j], base=2)
+            dist_matrix[i, j] = dist_matrix[j, i] = dist
 
-    # labels = wasserstein_kmeans(client_distributed.numpy(), n_clusters=num_clusters)
+    # 执行层次聚类
+    Z = linkage(dist_matrix, method='ward')
 
-    # draw_distributed(client_distributed)
-    labels = cluster_dbscan(client_distributed.numpy(), eps=0.25, min_samples=10)
-    # client_distributed = StandardScaler().fit_transform(client_distributed)
+    # 计算簇内平方和 (WCSS)
+    wcss = []
+    cluster_range = range(2, min(10, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
+    for n_clusters in cluster_range:
+        labels = fcluster(Z, n_clusters, 'maxclust')
+        cluster_centers = np.zeros((n_clusters, data.shape[1]))
+        for cluster_label in range(1, n_clusters + 1):
+            cluster_data = data[labels == cluster_label]
+            cluster_centers[cluster_label - 1] = np.mean(cluster_data, axis=0)
+        cluster_distances = np.zeros(data.shape[0])
+        for i in range(data.shape[0]):
+            cluster_label = labels[i]
+            cluster_center = cluster_centers[cluster_label - 1]
+            cluster_distances[i] = np.sum((data[i] - cluster_center) ** 2)
+        wcss.append(np.sum(cluster_distances))
 
-    # 执行DBSCAN聚类
-    # eps_values = np.linspace(0.1, 2.0, num=20)
-    # min_samples = 5
-    # num_clusters = []
-    #
-    # for eps in eps_values:
-    #     dbscan = DBSCAN(eps=eps, min_samples=min_samples)
-    #     labels = dbscan.fit_predict(client_distributed)
-    #     num_clusters.append(len(set(labels)) - (1 if -1 in labels else 0))
-    #
-    # # 绘制肘部图
-    # plt.plot(eps_values, num_clusters, marker='o')
-    # plt.xlabel('Epsilon')
-    # plt.ylabel('Number of Clusters')
-    # plt.title('Elbow Curve for DBSCAN')
-    # plt.savefig('elbow_curve.png')
-    # plt.show()
-    #
-    #
-    # print('labels',labels)
+    # 使用拐点法计算最优簇数
+    diff = np.diff(wcss)
+    knee = np.argmax(diff) + 1
+    optimal_num_clusters = cluster_range[knee]
+    print("Optimal number of clusters:", optimal_num_clusters)
 
+    labels = fcluster(Z, optimal_num_clusters, 'maxclust')
+    print("Cluster assignments:", labels)
     index_dict = {}
     for i in range(len(labels)):
         if labels[i] not in index_dict:
             index_dict[labels[i]] = []
         index_dict[labels[i]].append(i)
-    print('index_dict',index_dict)
 
+    # 创建字典来存储每个簇的全局模型
     w_global_dict = {}
-    # 将 w_locals[0] 转换为 PyTorch 张量
     w_locals_tensor = {}
     for key, value in w_locals[0].items():
         # w_locals_tensor[key] = torch.tensor(value)
         w_locals_tensor[key] = value.clone().detach().requires_grad_(True)
-
+    '''
     w_global_avg = FedAvg(w_locals)
+    '''
     # 创建全 0 张量，并将其赋值给 w_avg
     w_avg = {}
+    # for key, value in w_locals[0].items():
     for key, value in w_locals_tensor.items():
         w_avg[key] = torch.zeros_like(value)
     for j in index_dict.keys():
+        print('j:',j)
         for k in w_avg.keys():
+            print('k',k)
             for i in index_dict[j]:
+                print('i',i)
                 w_avg[k] += w_locals[i][k]
+            '''
             w_avg[k] = 0.5 * torch.div(w_avg[k], len(index_dict[j])) + 0.5 * w_global_avg[k]
+            '''
+            w_avg[k] = torch.div(w_avg[k], len(index_dict[j]))
         w_global_dict[j] = copy.deepcopy(w_avg)
-
+    print('多个全局模型字典长度',len(w_global_dict),'全局模型聚合索引',index_dict)
     return w_global_dict, index_dict
-
-
-def cluster_dbscan(distributed, eps=0.3, min_samples=5):
-    # metric：距离度量方法，用于计算样本之间的距离。可以是字符串形式的距离度量名称（如'euclidean'、'manhattan'、'cosine'等）
-    dbscan = DBSCAN(eps=eps, min_samples=min_samples,metric='cosine')
-    dbscan.fit(distributed)
-    labels = dbscan.labels_
-    return labels
-
-
-def draw_distributed(distributed):
-    plt.figure(figsize=(10, 6))
-    sns.violinplot(data=distributed)
-    plt.title('Probability Distribution of Each Client')
-    plt.xlabel('Client')
-    plt.ylabel('Probability')
-
-    plt.savefig("1.jpg")
-
-def kmodes_clustering(data, num_clusters, num_iterations):
-    num_samples, num_features = data.size()
-
-    # 随机初始化聚类中心
-    centroids = data[torch.randperm(num_samples)[:num_clusters]]
-
-    for _ in range(num_iterations):
-        # 计算每个样本与聚类中心之间的距离
-        distances = torch.cdist(data, centroids, p=0)
-
-        # 根据距离选择最近的聚类中心
-        _, labels = torch.min(distances, dim=1)
-
-        # 更新聚类中心
-        for cluster in range(num_clusters):
-            cluster_samples = data[labels == cluster]
-
-            # 计算每个特征的众数
-            modes = torch.mode(cluster_samples, dim=0).values
-
-            # 更新聚类中心为众数
-            centroids[cluster] = modes
-
-    return labels
-if __name__ == '__main__':
-    cluster_dbscan([[0,0,0,0,0],[2,2,2,2,2],[3,3,3,3,3],[9,9,9,9,9]])

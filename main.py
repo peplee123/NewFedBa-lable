@@ -15,7 +15,7 @@ from utils.sampling import mnist_iid, mnist_noniid, cifar_iid,cifar_noniid,build
 from utils.options import args_parser
 from models.Update import LocalUpdate
 from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM
-from models.Fed import FedAvg,FedBa,NewFedBa, cluster_dbscan
+from models.Fed import FedAvg,FedBa,NewFedBa
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare
 
@@ -88,7 +88,9 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
-            dict_users = mnist_noniid(dataset_train, args.num_users)
+            train_dict_users, test_dict_users = mnist_noniid(dataset_train, args.num_users)
+            print(len(train_dict_users))
+            # dict_users = mnist_noniid(dataset_train, args.num_users)
     elif args.dataset == 'femnist':
         dataset_train = FEMNIST(train=True)
         dataset_test = FEMNIST(train=False)
@@ -106,10 +108,10 @@ if __name__ == '__main__':
     elif args.model == 'cnn' and args.dataset == 'cifar100':
         net_glob = CNNCifar(args=args).to(args.device)
     elif args.model == 'cnn' and (args.dataset == 'mnist' or args.dataset == 'fashion-mnist'):
-        net_glob = torch.load('model80.pt')
-        net_glob = CNNMnist(args=args).to(args.device)  # 先定义相同结构的模型对象
-        net_glob.load_state_dict(torch.load('model_params.pth', map_location=torch.device('cpu')))
-        # net_glob = CNNMnist(args=args).to(args.device)
+        # net_glob = torch.load('model80.pt')
+        # net_glob = CNNMnist(args=args).to(args.device)  # 先定义相同结构的模型对象
+        # net_glob.load_state_dict(torch.load('model_params.pth', map_location=torch.device('cpu')))
+        net_glob = CNNMnist(args=args).to(args.device)
     elif args.dataset == 'femnist' and args.model == 'cnn':
         net_glob = CNNFemnist(args=args).to(args.device)
     elif args.dataset == 'shakespeare' and args.model == 'lstm':
@@ -122,10 +124,10 @@ if __name__ == '__main__':
     else:
         exit('Error: unrecognized model')
     print(net_glob)
-    # copy weights
 
     # w_glob = net_glob.state_dict()
     w_glob = copy.deepcopy(net_glob)
+
     # training
     #定义一个客户端的编号表
     num_client = []
@@ -133,13 +135,12 @@ if __name__ == '__main__':
     cluster_count = args.num_users
     cluster_dict = {k: [] for k in range(cluster_count+1)}
     cluster_dict[0] = range(args.num_users)
-
     cluster_model_list = [copy.deepcopy(net_glob) for _ in range(cluster_count+1)]
     acc_test = []
     loss_train = []
     learning_rate = [args.lr for i in range(args.num_users)]
-
-    # 这里是仿照那个中文论文的框架写的预训练的代码
+    '''
+     # 这里是仿照那个中文论文的框架写的预训练的代码
     local_model_list = [copy.deepcopy(net_glob) for _ in range(args.num_users)]
 
     allclient_distributed = []
@@ -162,6 +163,7 @@ if __name__ == '__main__':
             index_dict[cluster_labels[i]] = []
         index_dict[cluster_labels[i]].append(i)
     print('index_dict', index_dict)
+    '''
 #用完软预测做完聚类，我们后面是否还可以利用一些软预测来做聚合方式的修改
     for iter in range(args.epochs):
         allclient_distributed = []
@@ -169,6 +171,7 @@ if __name__ == '__main__':
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
         print('选取的客户端编号', idxs_users)
+        '''
         for key, value in index_dict.items():
 
             print("Key:", key)
@@ -176,15 +179,16 @@ if __name__ == '__main__':
             for v in value:
                 print(v)
             print("-----")
-
-
+        '''
 
         for idx in idxs_users:
             c_id = 0
-            for cluster_id,cluster_list in cluster_dict.items():
+            '''
+             for cluster_id,cluster_list in cluster_dict.items():
                 if idx in cluster_list:
                     c_id = cluster_id
                     break
+            '''
             args.lr = learning_rate[idx]
             local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users)
             w, loss, curLR,everyclient_distributed = local.train(net=copy.deepcopy(cluster_model_list[c_id]).to(args.device))

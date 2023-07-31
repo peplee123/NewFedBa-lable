@@ -7,7 +7,7 @@ from torch import nn, autograd
 from torch.utils.data import DataLoader, Dataset
 from models.test import test_img
 import torch.nn.functional as F
-
+import copy
 
 
 def distillation_loss(outputs, teacher_outputs, temperature):
@@ -39,12 +39,12 @@ class LocalUpdate(object):
         self.ldr_test = DataLoader(DatasetSplit(dataset, test_idxs), batch_size=self.args.local_bs, shuffle=False)
 
     def train(self, net):
-        net.train()
         # global_w = copy.deepcopy(net)
+        net.train()
         # global_w.eval()
         # train and update
-        # optimizer = torch.optim.Adam(net.parameters(),lr=self.args.lr,weight_decay=1e-3)
-        optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum,weight_decay=1e-3)
+        optimizer = torch.optim.Adam(net.parameters(),lr=self.args.lr,weight_decay=1e-3)
+        # optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum,weight_decay=1e-3)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=self.args.lr_decay)
         # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=self.args.lr_decay)
         epoch_loss = []
@@ -101,9 +101,10 @@ class LocalUpdate(object):
         sum_ = sum(total_local_probs)
         total_local_probs = torch.tensor([p/sum_ for p in total_local_probs])
         everyclient_distributed.append(total_local_probs)
-        accuracy, test_loss = test_img(net, self.ldr_test.dataset, self.args)
-        print(accuracy)
-
+        accuracyafter, test_loss = test_img(net, self.ldr_test.dataset, self.args)
+        # accuracybefor, test_loss1 = test_img(global_w, self.ldr_test.dataset, self.args)
+        # print('accuracy',accuracybefor)
+        print('accuracy', accuracyafter)
         # print(f"batch_loss: {sum(batch_loss) / len(batch_loss)}, acc: {accuracy}, test_loss: {test_loss}", )
         # return net, sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
         return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
