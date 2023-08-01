@@ -39,7 +39,7 @@ class LocalUpdate(object):
         self.ldr_test = DataLoader(DatasetSplit(dataset, test_idxs), batch_size=self.args.local_bs, shuffle=False)
 
     def train(self, net):
-        # global_w = copy.deepcopy(net)
+        global_w = copy.deepcopy(net)
         net.train()
         # global_w.eval()
         # train and update
@@ -62,10 +62,17 @@ class LocalUpdate(object):
                 # loss = distillation_loss(output_student, output_teacher, temperature)
 
                 # print(log_probs)
-
-                loss = self.loss_func(log_probs, labels)
                 # global_output = global_w(images)
                 local_probs = F.softmax(log_probs, dim=1)
+
+                # prox的正则项
+                proximal_term = 0.0
+                for w, w_t in zip(net.parameters(), global_w.parameters()):
+                    proximal_term += ((1 / 2) * torch.norm((w - w_t)) ** 2)
+                loss = self.loss_func(log_probs, labels) + proximal_term
+
+
+
                 # global_probs = F.softmax(global_output, dim=1)
                 #
                 # local_probs = torch.clamp(local_probs, min=1e-10)

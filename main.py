@@ -11,7 +11,7 @@ from torchvision import datasets, transforms
 import torch
 import os
 import random
-from utils.sampling import mnist_iid, noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist, draw_data_distribution
+from utils.sampling import mnist_iid, noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist, draw_data_distribution,build_noniid_pfl
 from utils.options import args_parser
 from models.Update import LocalUpdate, DatasetSplit
 from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         if args.iid:
             exit('Error: femnist dataset is naturally non-iid')
         else:
-            print("Warning: The femnist dataset is naturally non-iid, you do not need to specify iid or non-iid")
+            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
     img_size = dataset_train[0][0].shape
 
     # build model
