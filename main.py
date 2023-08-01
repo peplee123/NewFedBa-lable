@@ -11,9 +11,9 @@ from torchvision import datasets, transforms
 import torch
 import os
 import random
-from utils.sampling import mnist_iid, mnist_noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist, draw_data_distribution
+from utils.sampling import mnist_iid, noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist, draw_data_distribution
 from utils.options import args_parser
-from models.Update import LocalUpdate
+from models.Update import LocalUpdate, DatasetSplit
 from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM
 from models.Fed import FedAvg,FedBa,NewFedBa
 from models.test import test_img
@@ -36,7 +36,7 @@ if __name__ == '__main__':
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
             # dict_users = build_noniid(dataset_train, args.num_users, 1)
-            train_dict_users, test_dict_users = mnist_noniid(dataset_train, args.num_users)
+            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
             print(len(train_dict_users))
             # draw_data_distribution(train_dict_users, dataset_train, 10)
             # draw_data_distribution(test_dict_users, dataset_train, 10)
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
-            dict_users = build_noniid(dataset_train, args.num_users)
+            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
     elif args.dataset == 'cifar100':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
-            train_dict_users, test_dict_users = mnist_noniid(dataset_train, args.num_users)
+            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
             print(len(train_dict_users))
             # dict_users = mnist_noniid(dataset_train, args.num_users)
     elif args.dataset == 'femnist':
@@ -136,6 +136,7 @@ if __name__ == '__main__':
     cluster_dict = {k: [] for k in range(cluster_count+1)}
     cluster_dict[0] = range(args.num_users)
     cluster_model_list = [copy.deepcopy(net_glob) for _ in range(cluster_count+1)]
+    client_model_list = [copy.deepcopy(net_glob) for _ in range(args.num_users)]
     acc_test = []
     loss_train = []
     learning_rate = [args.lr for i in range(args.num_users)]
@@ -180,38 +181,53 @@ if __name__ == '__main__':
                 print(v)
             print("-----")
         '''
+        acc_total = 0
 
         for idx in idxs_users:
-            c_id = 0
             '''
              for cluster_id,cluster_list in cluster_dict.items():
                 if idx in cluster_list:
                     c_id = cluster_id
                     break
-            '''
+            # '''
+            # [0.0312, 0.0631, 0.0410, 0.0540, 0.3628, 0.0431, 0.0555, 0.0491, 0.0393,
+            #  0.2608]
+            # [0.0368, 0.0650, 0.0476, 0.1223, 0.2539, 0.0467, 0.0599, 0.0527, 0.0447,
+            #  0.2704]
             args.lr = learning_rate[idx]
-            local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users)
-            w, loss, curLR,everyclient_distributed = local.train(net=copy.deepcopy(cluster_model_list[c_id]).to(args.device))
+            local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
+            w, loss, curLR,everyclient_distributed, acc = local.train(net=copy.deepcopy(client_model_list[idx]).to(args.device))
+            acc_total += acc
             learning_rate[idx] = curLR
             w_locals.append(copy.deepcopy(w))
             loss_locals.append(copy.deepcopy(loss))
             allclient_distributed.append(everyclient_distributed)
+        print(f"avg acc {acc_total/len(idxs_users)}")
         # new_allclient_distributed = list(map(lambda x: list(map(float, x[0])), allclient_distributed))
         tensor_list = [item[0] for item in allclient_distributed]
         # print("传入聚类的数据",tensor_list)
         w_global_dict, index_dict = NewFedBa(w_locals, tensor_list)
-        print("通过软标签聚类的全局模型聚合完毕")
+        # 这里返回的index_dict 代表的id是tensor_list内的索引，而真实的客户端id是idxs_users
+        # 也就是说如果要取到真实的客户端id，需要取cid=idxs_users[id]
+        # print("通过软标签聚类的全局模型聚合完毕")
+        cluster_acc_total = 0
         for k, idx_list in index_dict.items():
             for idx in idx_list:
+                c_id = idxs_users[idx]
                 # w_global_dict[k] =interpolate_models(w_global_dict[k],w_glob,0.5)
-                w_locals[idx] = copy.deepcopy(w_global_dict[k])
+                # w_locals[idx] = copy.deepcopy(w_global_dict[k])
+                client_model_list[c_id].load_state_dict(w_global_dict[k])
             cluster_model_list[k].load_state_dict(w_global_dict[k])
             cluster_dict[k] = idx_list
 
+            dataset_test_idx = np.concatenate([test_dict_users[idxs_users[idx]] for idx in idx_list])
+
             # print accuracy
-            acc_t, loss_t = test_img(cluster_model_list[k], dataset_test, args)
-            print("Round {:3d},cluster {} Testing accuracy: {:.2f}".format(iter, k, acc_t))
+            acc_t, loss_t = test_img(cluster_model_list[k], DatasetSplit(dataset_train, dataset_test_idx), args)
+            cluster_acc_total += acc_t
+            # print("Round {:3d},cluster {} Testing accuracy: {:.2f}".format(iter, k, acc_t))
             acc_test.append(acc_t.item())
+        print(f"Round {iter:3d}, cluster avg acc {cluster_acc_total/len(index_dict)}")
 
         # copy weight to net_glob
         # net_glob.load_state_dict(w_glob)

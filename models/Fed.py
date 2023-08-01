@@ -152,10 +152,10 @@ def NewFedBa(w_locals, client_distributed):
     diff = np.diff(wcss)
     knee = np.argmax(diff) + 1
     optimal_num_clusters = cluster_range[knee]
-    print("Optimal number of clusters:", optimal_num_clusters)
+    # print("Optimal number of clusters:", optimal_num_clusters)
 
     labels = fcluster(Z, optimal_num_clusters, 'maxclust')
-    print("Cluster assignments:", labels)
+    # print("Cluster assignments:", labels)
     index_dict = {}
     for i in range(len(labels)):
         if labels[i] not in index_dict:
@@ -164,29 +164,23 @@ def NewFedBa(w_locals, client_distributed):
 
     # 创建字典来存储每个簇的全局模型
     w_global_dict = {}
-    w_locals_tensor = {}
-    for key, value in w_locals[0].items():
-        # w_locals_tensor[key] = torch.tensor(value)
-        w_locals_tensor[key] = value.clone().detach().requires_grad_(True)
     '''
     w_global_avg = FedAvg(w_locals)
     '''
     # 创建全 0 张量，并将其赋值给 w_avg
     w_avg = {}
     # for key, value in w_locals[0].items():
-    for key, value in w_locals_tensor.items():
-        w_avg[key] = torch.zeros_like(value)
     for j in index_dict.keys():
-        print('j:',j)
+        # 改 每个簇的模型都得先置0
+        for key, value in w_locals[0].items():
+            w_avg[key] = torch.zeros_like(value)
         for k in w_avg.keys():
-            print('k',k)
             for i in index_dict[j]:
-                print('i',i)
                 w_avg[k] += w_locals[i][k]
             '''
             w_avg[k] = 0.5 * torch.div(w_avg[k], len(index_dict[j])) + 0.5 * w_global_avg[k]
             '''
             w_avg[k] = torch.div(w_avg[k], len(index_dict[j]))
         w_global_dict[j] = copy.deepcopy(w_avg)
-    print('多个全局模型字典长度',len(w_global_dict),'全局模型聚合索引',index_dict)
+    # print('多个全局模型字典长度',len(w_global_dict),'全局模型聚合索引',index_dict)
     return w_global_dict, index_dict

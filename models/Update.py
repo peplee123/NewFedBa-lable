@@ -43,8 +43,8 @@ class LocalUpdate(object):
         net.train()
         # global_w.eval()
         # train and update
-        optimizer = torch.optim.Adam(net.parameters(),lr=self.args.lr,weight_decay=1e-3)
-        # optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum,weight_decay=1e-3)
+        # optimizer = torch.optim.Adam(net.parameters(),lr=self.args.lr,weight_decay=1e-3)
+        optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum,weight_decay=1e-3)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=self.args.lr_decay)
         # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=self.args.lr_decay)
         epoch_loss = []
@@ -104,7 +104,7 @@ class LocalUpdate(object):
         accuracyafter, test_loss = test_img(net, self.ldr_test.dataset, self.args)
         # accuracybefor, test_loss1 = test_img(global_w, self.ldr_test.dataset, self.args)
         # print('accuracy',accuracybefor)
-        print('accuracy', accuracyafter)
+        # print('accuracy', accuracyafter)
         # print(f"batch_loss: {sum(batch_loss) / len(batch_loss)}, acc: {accuracy}, test_loss: {test_loss}", )
         # return net, sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
-        return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
+        return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed, accuracyafter

@@ -52,7 +52,7 @@ def mnist_iid(dataset, num_users):
     return dict_users
 
 
-def mnist_noniid(dataset, num_users):
+def noniid(dataset, num_users):
     """
     Sample non-I.I.D client data from MNIST dataset
     :param dataset:
@@ -104,6 +104,8 @@ def mnist_noniid(dataset, num_users):
         for rand in rand_set:
             data = np.concatenate((train_dict_users[i], idxs[rand * num_imgs:(rand + 1) * num_imgs]), axis=0)
             train_dict_users[i], test_dict_users[i] = data[:int(0.8*len(data))], data[int(0.8*len(data)):]
+
+    draw_data_distribution(train_dict_users, dataset, num_class=10)
     return train_dict_users, test_dict_users
 
 
@@ -292,7 +294,7 @@ if __name__ == '__main__':
     dataset_train = datasets.FashionMNIST('../data/fashion-mnist', train=True, download=True,
                                           transform=trans_fashion_mnist)
 
-    train_dict_users, test_dict_users = mnist_noniid(dataset_train, 10)
+    train_dict_users, test_dict_users = noniid(dataset_train, 10)
     draw_data_distribution(train_dict_users, dataset_train, 10)
     draw_data_distribution(test_dict_users, dataset_train, 10)
     # num = 100
