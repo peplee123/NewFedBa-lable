@@ -3,7 +3,6 @@
 # Python version: 3.6
 
 import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import copy
 import numpy as np
@@ -88,7 +87,7 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
-            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
+            train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, 0.1)
             print(len(train_dict_users))
             # dict_users = mnist_noniid(dataset_train, args.num_users)
     elif args.dataset == 'femnist':

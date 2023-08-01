@@ -306,13 +306,16 @@ def build_noniid(dataset, num_users, alpha):
 
     client_idxs = [np.concatenate(idxs) for idxs in client_idxs]
     #
-    dict_users = {}
+    train_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
+    test_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
 
     for i in range(len(client_idxs)):
-        dict_users[i] = client_idxs[i]
+        data = client_idxs[i]
+        train_dict_users[i], test_dict_users[i] = data[:int(0.8 * len(data))], data[int(0.8 * len(data)):]
 
-    draw_data_distribution(dict_users, dataset, n_classes)
-    return dict_users
+    draw_data_distribution(train_dict_users, dataset, n_classes)
+    draw_data_distribution(test_dict_users, dataset, n_classes)
+    return train_dict_users, test_dict_users
 
 
 def draw_data_distribution(dict_users, dataset, num_class):
