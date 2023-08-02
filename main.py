@@ -17,6 +17,7 @@ from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM
 from models.Fed import FedAvg,FedBa,NewFedBa
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare
+from torch.utils.data import ConcatDataset
 
 if __name__ == '__main__':
     # parse args
@@ -35,8 +36,9 @@ if __name__ == '__main__':
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
             # dict_users = build_noniid(dataset_train, args.num_users, 1)
+            dataset_train = ConcatDataset([dataset_train, dataset_test])
             train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
-            print(len(train_dict_users))
+            print(train_dict_users)
             # draw_data_distribution(train_dict_users, dataset_train, 10)
             # draw_data_distribution(test_dict_users, dataset_train, 10)
             # dict_users = bingtai_mnist(dataset_train, args.num_users,2,random.randint(200, 2500))
