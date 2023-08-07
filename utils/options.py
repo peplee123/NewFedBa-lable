@@ -10,15 +10,18 @@ import argparse
 def args_parser():
     parser = argparse.ArgumentParser()
     # federated arguments
-    parser.add_argument('--epochs', type=int, default=100, help="rounds of training")
-    parser.add_argument('--num_users', type=int, default=10, help="number of users: K")
-    parser.add_argument('--frac', type=float, default=1, help="the fraction of clients: C")
+    parser.add_argument('--dir', type=int, default=0.1, help="noniid label number of client ")
+    parser.add_argument('--bingtai', type=int, default=2, help="noniid label number of client ")
+    parser.add_argument('--beizhu', type=str, default='2023841241', help="rounds of training")
+    parser.add_argument('--epochs', type=int, default=350, help="rounds of training")
+    parser.add_argument('--num_users', type=int, default=100, help="number of users: K")
+    parser.add_argument('--frac', type=float, default=0.1, help="the fraction of clients: C")
     parser.add_argument('--local_ep', type=int, default=5, help="the number of local epochs: E")
-    parser.add_argument('--local_bs', type=int, default=128, help="local batch size: B")
-    parser.add_argument('--bs', type=int, default=128, help="test batch size")
+    parser.add_argument('--local_bs', type=int, default=64, help="local batch size: B")
+    parser.add_argument('--bs', type=int, default=64, help="test batch size")
     parser.add_argument('--lr', type=float, default=0.01, help="learning rate")
     parser.add_argument('--lr_decay', type=float, default=1, help="learning rate decay each round")
-    parser.add_argument('--momentum', type=float, default=0.8, help="SGD momentum (default: 0.5)")
+    parser.add_argument('--momentum', type=float, default=0.9, help="SGD momentum (default: 0.5)")
     parser.add_argument('--split', type=str, default='user', help="train-test split type, user or sample")
 
     # model arguments

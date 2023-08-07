@@ -42,23 +42,59 @@ class MLP(nn.Module):
 #         x = F.dropout(x, training=self.training)
 #         x = self.fc2(x)
 #         return F.log_softmax(x, dim=1)
+# class CNNMnist(nn.Module):
+#     def __init__(self, args):
+#         super(CNNMnist, self).__init__()
+#         self.conv1 = nn.Conv2d(args.num_channels, 10, kernel_size=5)
+#         self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+#         self.conv2_drop = nn.Dropout2d()
+#         self.fc1 = nn.Linear(320, 50)
+#         self.fc2 = nn.Linear(50, args.num_classes)
+#
+#     def forward(self, x):
+#         x = F.relu(F.max_pool2d(self.conv1(x), 2))
+#         x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+#         x = x.view(-1, x.shape[1]*x.shape[2]*x.shape[3])
+#         x = F.relu(self.fc1(x))
+#         x = F.dropout(x, training=self.training)
+#         x = self.fc2(x)
+#         return F.log_softmax(x, dim=1)
 class CNNMnist(nn.Module):
     def __init__(self, args):
-        super(CNNMnist, self).__init__()
-        self.conv1 = nn.Conv2d(args.num_channels, 10, kernel_size=5)
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
-        self.conv2_drop = nn.Dropout2d()
-        self.fc1 = nn.Linear(320, 50)
-        self.fc2 = nn.Linear(50, args.num_classes)
+        super().__init__()
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(1,
+                        32,
+                        kernel_size=5,
+                        padding=0,
+                        stride=1,
+                        bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(32,
+                        64,
+                        kernel_size=5,
+                        padding=0,
+                        stride=1,
+                        bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+        self.fc1 = nn.Sequential(
+            nn.Linear(1024, 512),
+            nn.ReLU(inplace=True)
+        )
+        self.fc = nn.Linear(512, 10)
 
     def forward(self, x):
-        x = F.relu(F.max_pool2d(self.conv1(x), 2))
-        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
-        x = x.view(-1, x.shape[1]*x.shape[2]*x.shape[3])
-        x = F.relu(self.fc1(x))
-        x = F.dropout(x, training=self.training)
-        x = self.fc2(x)
-        return F.log_softmax(x, dim=1)
+        out = self.conv1(x)
+        out = self.conv2(out)
+        out = torch.flatten(out, 1)
+        out = self.fc1(out)
+        out = self.fc(out)
+        return out
 
 class CNNCifar(nn.Module):
     def __init__(self, args):
@@ -136,3 +172,72 @@ class CharLSTM(nn.Module):
     #                       weight.new(2, batch_size, 256).zero_())
     #
     #     return initial_hidden
+
+
+class LeNet5(nn.Module):
+    def __init__(self, args):
+        super(LeNet5, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(args.num_channels, 6, kernel_size=5),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(6, 16, kernel_size=5),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2)
+        )
+        self.classifier = nn.Sequential(
+            # nn.Linear(16 * 5 * 5, 120),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64,10)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return x
+def init_weights(m):
+    classname = m.__class__.__name__
+    if classname.find('Conv2d') != -1 or classname.find('ConvTranspose2d') != -1:
+        nn.init.kaiming_uniform_(m.weight)
+        nn.init.zeros_(m.bias)
+    elif classname.find('BatchNorm') != -1:
+        nn.init.normal_(m.weight, 1.0, 0.02)
+        nn.init.zeros_(m.bias)
+    elif classname.find('Linear') != -1:
+        nn.init.xavier_normal_(m.weight)
+        nn.init.zeros_(m.bias)
+class LeNet(nn.Module):
+    def __init__(self, feature_dim=50*4*4, bottleneck_dim=256, num_classes=10, iswn=None):
+        super(LeNet, self).__init__()
+
+        self.conv_params = nn.Sequential(
+            nn.Conv2d(1, 20, kernel_size=5),
+            nn.MaxPool2d(2),
+            nn.ReLU(),
+            nn.Conv2d(20, 50, kernel_size=5),
+            nn.Dropout2d(p=0.5),
+            nn.MaxPool2d(2),
+            nn.ReLU(),
+        )
+        self.bn = nn.BatchNorm1d(bottleneck_dim, affine=True)
+        self.dropout = nn.Dropout(p=0.5)
+        self.bottleneck = nn.Linear(feature_dim, bottleneck_dim)
+        self.bottleneck.apply(init_weights)
+        self.fc = nn.Linear(bottleneck_dim, num_classes)
+        if iswn == "wn":
+            self.fc = nn.utils.weight_norm(self.fc, name="weight")
+        self.fc.apply(init_weights)
+
+    def forward(self, x):
+        x = self.conv_params(x)
+        x = x.view(x.size(0), -1)
+        x = self.bottleneck(x)
+        x = self.bn(x)
+        x = self.dropout(x)
+        x = self.fc(x)
+        x = F.log_softmax(x, dim=1)
+        return x

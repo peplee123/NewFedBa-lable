@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 from models.test import test_img
 import torch.nn.functional as F
 import copy
-
+import numpy as np
 
 def distillation_loss(outputs, teacher_outputs, temperature):
     soft_labels = nn.functional.softmax(teacher_outputs / temperature, dim=1)
@@ -16,6 +16,15 @@ def distillation_loss(outputs, teacher_outputs, temperature):
     loss = nn.functional.kl_div(log_probs, soft_labels, reduction='batchmean') * temperature ** 2
     return loss
 
+def bhattacharyya_distance(vector1, vector2):
+    # Avoid division by zero
+    epsilon = 1e-10
+    vector1 = torch.mean(vector1, dim=0).detach().numpy()
+    vector2 = torch.mean(vector2, dim=0).detach().numpy()
+    vector1 = np.clip(vector1, epsilon, 1.0 - epsilon)
+    vector2 = np.clip(vector2, epsilon, 1.0 - epsilon)
+    BC = np.sum(np.sqrt(vector1 * vector2))
+    return -np.log(BC)
 
 class DatasetSplit(Dataset):
     def __init__(self, dataset, idxs):
@@ -41,7 +50,7 @@ class LocalUpdate(object):
     def train(self, net):
         global_w = copy.deepcopy(net)
         net.train()
-        # global_w.eval()
+        global_w.eval()
         # train and update
         # optimizer = torch.optim.Adam(net.parameters(),lr=self.args.lr,weight_decay=1e-3)
         optimizer = torch.optim.SGD(net.parameters(), lr=self.args.lr, momentum=self.args.momentum,weight_decay=1e-3)
@@ -57,45 +66,19 @@ class LocalUpdate(object):
                 images, labels = images.to(self.args.device), labels.to(self.args.device)
                 net.zero_grad()
                 log_probs = net(images)
-                # output_teacher = global_w(images)
-                # output_student = net(images)
-                # loss = distillation_loss(output_student, output_teacher, temperature)
+                global_probs = global_w(images)
 
-                # print(log_probs)
-                # global_output = global_w(images)
                 local_probs = F.softmax(log_probs, dim=1)
-
+                global_probs = F.softmax(global_probs, dim=1)
+                # loss = self.loss_func(log_probs, labels)
                 # prox的正则项
-                proximal_term = 0.0
-                for w, w_t in zip(net.parameters(), global_w.parameters()):
-                    proximal_term += ((1 / 2) * torch.norm((w - w_t)) ** 2)
-                loss = self.loss_func(log_probs, labels) + proximal_term
+                # proximal_term = 0.0
+                # for w, w_t in zip(net.parameters(), global_w.parameters()):
+                #     proximal_term += ((1 / 2) * torch.norm((w - w_t)) ** 2)
+                # loss = self.loss_func(log_probs, labels) + proximal_term
+                proximal_term = bhattacharyya_distance(local_probs,global_probs)
+                loss = self.loss_func(log_probs, labels)+0.005*proximal_term
 
-
-
-                # global_probs = F.softmax(global_output, dim=1)
-                #
-                # local_probs = torch.clamp(local_probs, min=1e-10)
-                # global_probs = torch.clamp(global_probs, min=1e-10)
-                # print(global_probs)
-                # kl_div = F.kl_div(local_probs.log(), global_probs.detach(), reduction='batchmean')
-                # print("kl_div: ", kl_div)
-                # loss =loss+0.5*kl_div
-                # -----------
-                # params = weight_flatten(net)
-                # params_ = weight_flatten(global_w)
-                # sub = params - params_
-                # loss = 0.8*loss + 0.2 * torch.dot(sub, sub)
-                # -----------
-                # KL = F.kl_div(log_probs.softmax(dim=-1).log(), labels.softmax(dim=-1), reduction='sum')
-                # labels = labels.reshape(labels.shape[0], 1)
-                # # labels = torch.tensor(labels, dtype=torch.int64).cuda()
-                #
-                # KL = kl_loss(Softmax(log_probs), Softmax(labels))
-
-                # print(KL.cpu().detach().numpy())
-
-                # loss = 0.5*loss+0.5*KL
                 loss.backward()
                 optimizer.step()
                 scheduler.step()

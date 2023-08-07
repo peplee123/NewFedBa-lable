@@ -116,7 +116,8 @@ def weight_flatten(model):
 def NewFedBa(w_locals, client_distributed):
     # 将 client_distributed 转换为张量
     client_distributed = [item for item in client_distributed]
-    client_distributed = torch.tensor([item.numpy() for item in client_distributed])
+    client_distributed = torch.tensor(np.array([item.numpy() for item in client_distributed]))
+    # client_distributed = torch.tensor([item.numpy() for item in client_distributed])
     client_distributed = client_distributed.cpu()
 
     # 将 client_distributed 转换为 NumPy 数组
@@ -128,7 +129,7 @@ def NewFedBa(w_locals, client_distributed):
         for j in range(i + 1, data.shape[0]):
             dist = jensenshannon(data[i], data[j], base=2)
             dist_matrix[i, j] = dist_matrix[j, i] = dist
-
+    print(dist_matrix)
     # 执行层次聚类
     Z = linkage(dist_matrix, method='ward')
 
@@ -164,9 +165,9 @@ def NewFedBa(w_locals, client_distributed):
 
     # 创建字典来存储每个簇的全局模型
     w_global_dict = {}
-    '''
-    w_global_avg = FedAvg(w_locals)
-    '''
+
+    # w_global_avg = FedAvg(w_locals)
+
     # 创建全 0 张量，并将其赋值给 w_avg
     w_avg = {}
     # for key, value in w_locals[0].items():
@@ -177,9 +178,8 @@ def NewFedBa(w_locals, client_distributed):
         for k in w_avg.keys():
             for i in index_dict[j]:
                 w_avg[k] += w_locals[i][k]
-            '''
-            w_avg[k] = 0.5 * torch.div(w_avg[k], len(index_dict[j])) + 0.5 * w_global_avg[k]
-            '''
+
+            w_avg[k] = torch.div(w_avg[k], len(index_dict[j]))
             w_avg[k] = torch.div(w_avg[k], len(index_dict[j]))
         w_global_dict[j] = copy.deepcopy(w_avg)
     # print('多个全局模型字典长度',len(w_global_dict),'全局模型聚合索引',index_dict)

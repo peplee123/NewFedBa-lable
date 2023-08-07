@@ -96,7 +96,7 @@ def mnist_iid(dataset, num_users):
     return dict_users
 
 
-def noniid(dataset, num_users):
+def noniid(args,dataset, num_users):
     """
     Sample non-I.I.D client data from MNIST dataset
     :param dataset:
@@ -104,7 +104,7 @@ def noniid(dataset, num_users):
     :return:
     """
 
-    n_class =2
+    n_class =args.bingtai
     num_shards, num_imgs = num_users * n_class, int(len(dataset) / (num_users * n_class))
     idx_shard = [i for i in range(num_shards)]
     train_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
@@ -266,7 +266,10 @@ def bingtai_mnist(dataset,num_clients, num_classes_per_client, num_samples_per_c
 
 def build_noniid(dataset, num_users, alpha):
     print("DDDD1")
-    train_labels = np.array(dataset.targets)
+    train_labels = np.array([], dtype="int64")
+    for d in dataset.datasets:
+        train_labels = np.append(train_labels, np.array(d.targets, dtype='int64'))
+    # train_labels = np.array(dataset.targets)
     n_classes = np.max(train_labels) + 1
     label_distribution = np.random.dirichlet([alpha] * num_users, n_classes)
     # (K, N)的类别标签分布矩阵X，记录每个client占有每个类别的多少
@@ -292,8 +295,8 @@ def build_noniid(dataset, num_users, alpha):
         data = client_idxs[i]
         train_dict_users[i], test_dict_users[i] = data[:int(0.8 * len(data))], data[int(0.8 * len(data)):]
 
-    draw_data_distribution(train_dict_users, dataset, n_classes)
-    draw_data_distribution(test_dict_users, dataset, n_classes)
+    # draw_data_distribution(train_dict_users, dataset, n_classes)
+    # draw_data_distribution(test_dict_users, dataset, n_classes)
     return train_dict_users, test_dict_users
 
 

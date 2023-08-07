@@ -13,7 +13,7 @@ import random
 from utils.sampling import mnist_iid, noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist, draw_data_distribution,build_noniid_pfl
 from utils.options import args_parser
 from models.Update import LocalUpdate, DatasetSplit
-from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM
+from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5
 from models.Fed import FedAvg,FedBa,NewFedBa
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare
@@ -29,21 +29,14 @@ if __name__ == '__main__':
         trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
         dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True, transform=trans_mnist)
         dataset_test = datasets.MNIST('./data/mnist/', train=False, download=True, transform=trans_mnist)
-        print(len(dataset_train))
-        print(len(dataset_test))
         # sample users
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
-            # dict_users = build_noniid(dataset_train, args.num_users, 1)
+
             dataset_train = ConcatDataset([dataset_train, dataset_test])
-            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
-            print(train_dict_users)
-            # draw_data_distribution(train_dict_users, dataset_train, 10)
-            # draw_data_distribution(test_dict_users, dataset_train, 10)
-            # dict_users = bingtai_mnist(dataset_train, args.num_users,2,random.randint(200, 2500))
-            # for client_id, indices in train_dict_users.items():
-            #     print(f"Client {client_id}: {indices}")
+            # train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users,args.dir)
+            train_dict_users, test_dict_users = noniid(args,dataset_train, args.num_users)
     elif args.dataset == 'cifar10':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
@@ -61,7 +54,8 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
-            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
+            dataset_train = ConcatDataset([dataset_train, dataset_test])
+            train_dict_users, test_dict_users = noniid(args,dataset_train, args.num_users)
     elif args.dataset == 'cifar100':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
@@ -89,8 +83,10 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
-            train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, 0.1)
-            print(len(train_dict_users))
+            dataset_train = ConcatDataset([dataset_train, dataset_test])
+            train_dict_users, test_dict_users = noniid(args,dataset_train, args.num_users)
+            # train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, 0.1)
+            # print(len(train_dict_users))
             # dict_users = mnist_noniid(dataset_train, args.num_users)
     elif args.dataset == 'femnist':
         dataset_train = FEMNIST(train=True)
@@ -105,13 +101,16 @@ if __name__ == '__main__':
 
     # build model
     if args.model == 'cnn' and args.dataset == 'cifar10':
-        net_glob = CNNCifar(args=args).to(args.device)
+        # net_glob = CNNCifar(args=args).to(args.device)
+        # net_glob = LeNet(args=args).to(args.device)
+        net_glob = LeNet5(args=args).to(args.device)
     elif args.model == 'cnn' and args.dataset == 'cifar100':
         net_glob = CNNCifar(args=args).to(args.device)
     elif args.model == 'cnn' and (args.dataset == 'mnist' or args.dataset == 'fashion-mnist'):
         # net_glob = torch.load('model80.pt')
         # net_glob = CNNMnist(args=args).to(args.device)  # 先定义相同结构的模型对象
         # net_glob.load_state_dict(torch.load('model_params.pth', map_location=torch.device('cpu')))
+        # net_glob = LeNet5(args=args).to(args.device)
         net_glob = CNNMnist(args=args).to(args.device)
     elif args.dataset == 'femnist' and args.model == 'cnn':
         net_glob = CNNFemnist(args=args).to(args.device)
@@ -139,6 +138,7 @@ if __name__ == '__main__':
     cluster_model_list = [copy.deepcopy(net_glob) for _ in range(cluster_count+1)]
     client_model_list = [copy.deepcopy(net_glob) for _ in range(args.num_users)]
     acc_test = []
+    acc_client = []
     loss_train = []
     learning_rate = [args.lr for i in range(args.num_users)]
     '''
@@ -203,7 +203,9 @@ if __name__ == '__main__':
             w_locals.append(copy.deepcopy(w))
             loss_locals.append(copy.deepcopy(loss))
             allclient_distributed.append(everyclient_distributed)
-        print(f"avg acc {acc_total/len(idxs_users)}")
+        acc = acc_total/len(idxs_users)
+        print(f"avg acc {acc}")
+        acc_client.append(acc)
         # new_allclient_distributed = list(map(lambda x: list(map(float, x[0])), allclient_distributed))
         tensor_list = [item[0] for item in allclient_distributed]
         # print("传入聚类的数据",tensor_list)
@@ -227,8 +229,9 @@ if __name__ == '__main__':
             acc_t, loss_t = test_img(cluster_model_list[k], DatasetSplit(dataset_train, dataset_test_idx), args)
             cluster_acc_total += acc_t
             # print("Round {:3d},cluster {} Testing accuracy: {:.2f}".format(iter, k, acc_t))
-            acc_test.append(acc_t.item())
-        print(f"Round {iter:3d}, cluster avg acc {cluster_acc_total/len(index_dict)}")
+            acc = cluster_acc_total / len(index_dict)
+        acc_test.append(acc)
+        print(f"Round {iter:3d}, cluster avg acc {acc}")
 
         # copy weight to net_glob
         # net_glob.load_state_dict(w_glob)
@@ -237,53 +240,36 @@ if __name__ == '__main__':
         print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
         loss_train.append(loss_avg)
 
-
-        # for k, idx_list in index_dict.items():
-        #     for idx in idx_list:
-        #         w_locals[idx] = copy.deepcopy(w_global_dict[k])
-        #
-        #     cluster_model_list[k].load_state_dict(w_global_dict[k])
-        #     cluster_dict[k] = idx_list
-        #
-        #     # print accuracy
-        #     acc_t, loss_t = test_img(cluster_model_list[k], dataset_test, args)
-        #     print("Round {:3d},cluster {} Testing accuracy: {:.2f}".format(iter, k, acc_t))
-        #     acc_test.append(acc_t.item())
-        #
-        #
-        #
-        #
-        # # copy weight to net_glob
-        # # net_glob.load_state_dict(w_glob)
-        # # net_glob.load_state_dict(w_glob.state_dict())
-        # loss_avg = sum(loss_locals) / len(loss_locals)
-        # print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
-        # loss_train.append(loss_avg)
-
-
-    rootpath = './log'
-    if not os.path.exists(rootpath):
-        os.makedirs(rootpath)
-    accfile = open(rootpath + '/accfile_fed_{}_{}_{}_iid{}_{}_{}.dat'.
-                   format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs), "w")
-    accfile1 = open(rootpath + '/lossfile_fed_{}_{}_{}_iid{}_{}_{}.dat'.
-                   format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs), "w")
-    for ac in acc_test:
-        sac = str(ac)
-        accfile.write(sac)
-        accfile.write('\n')
-    accfile.close()
-    for ac in loss_train:
-        sac = str(ac)
-        accfile1.write(sac)
-        accfile1.write('\n')
-    accfile1.close()
+        rootpath = './log'
+        if not os.path.exists(rootpath):
+            os.makedirs(rootpath)
+        accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}.dat'.
+                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu), "w")
+        accfile1 = open(rootpath + '/loss_file_fed_{}_{}_{}_iid{}_{}_{}_{}.dat'.
+                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu), "w")
+        accfile2 = open(rootpath + '/acc_client_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}.dat'.
+                        format(args.dataset, args.model, args.epochs, args.iid, args.lr, args.local_bs,args.beizhu), "w")
+        for ac in acc_test:
+            sac = str(ac)
+            accfile.write(sac)
+            accfile.write('\n')
+        accfile.close()
+        for ac in loss_train:
+            sac = str(ac)
+            accfile1.write(sac)
+            accfile1.write('\n')
+        accfile1.close()
+        for ac in acc_client:
+            sac = str(ac)
+            accfile2.write(sac)
+            accfile2.write('\n')
+        accfile1.close()
 
     # plot loss curve
     plt.figure()
-    plt.plot(range(len(acc_test)), acc_test)
+    plt.plot(range(len(acc_client)), acc_client)
     plt.ylabel('test accuracy')
-    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs))
+    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc_client.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs))
 
 
 
