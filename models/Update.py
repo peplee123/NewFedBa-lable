@@ -19,8 +19,8 @@ def distillation_loss(outputs, teacher_outputs, temperature):
 def bhattacharyya_distance(vector1, vector2):
     # Avoid division by zero
     epsilon = 1e-10
-    vector1 = torch.mean(vector1, dim=0).detach().numpy()
-    vector2 = torch.mean(vector2, dim=0).detach().numpy()
+    vector1 = torch.mean(vector1, dim=0).cpu().detach().numpy()
+    vector2 = torch.mean(vector2, dim=0).cpu().detach().numpy()
     vector1 = np.clip(vector1, epsilon, 1.0 - epsilon)
     vector2 = np.clip(vector2, epsilon, 1.0 - epsilon)
     BC = np.sum(np.sqrt(vector1 * vector2))

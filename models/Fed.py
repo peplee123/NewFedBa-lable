@@ -156,7 +156,7 @@ def NewFedBa(w_locals, client_distributed):
     # print("Optimal number of clusters:", optimal_num_clusters)
 
     labels = fcluster(Z, optimal_num_clusters, 'maxclust')
-    # print("Cluster assignments:", labels)
+    print("Cluster assignments:", labels)
     index_dict = {}
     for i in range(len(labels)):
         if labels[i] not in index_dict:
