@@ -8,45 +8,6 @@ from torchvision import datasets, transforms
 from sklearn.model_selection import train_test_split
 
 
-def build_noniid_pfl(dataset, num_users, alpha, train_ratio=0.8):
-    train_labels = np.array(dataset.targets)
-    n_classes = np.max(train_labels) + 1
-    label_distribution = np.random.dirichlet([alpha] * num_users, n_classes)
-
-    class_idxs = [np.argwhere(train_labels == y).flatten()
-                  for y in range(n_classes)]
-
-    client_train_idxs = [[] for _ in range(num_users)]
-    client_test_idxs = [[] for _ in range(num_users)]
-
-    for c, fracs in zip(class_idxs, label_distribution):
-        num_samples = len(c)
-        num_train_samples = int(train_ratio * num_samples)
-        train_frac = fracs * train_ratio
-        test_frac = fracs * (1 - train_ratio)
-
-        train_sizes = (train_frac * num_train_samples).astype(int)
-        test_sizes = (test_frac * (num_samples - num_train_samples)).astype(int)
-
-        train_idx = 0
-        test_idx = 0
-        for i in range(num_users):
-            train_end = train_idx + train_sizes[i]
-            test_end = test_idx + test_sizes[i]
-            client_train_idxs[i] += list(c[train_idx:train_end])
-            client_test_idxs[i] += list(c[test_idx:test_end])
-            train_idx = train_end
-            test_idx = test_end
-
-    dict_users_train = {i: client_train_idxs[i] for i in range(len(client_train_idxs))}
-    dict_users_test = {i: client_test_idxs[i] for i in range(len(client_test_idxs))}
-
-    draw_data_distribution(dict_users_train, dataset, n_classes)
-    draw_data_distribution(dict_users_test, dataset, n_classes)
-
-    return dict_users_train, dict_users_test
-
-
 def noniid(args,dataset, num_users):
     """
     Sample non-I.I.D client data from MNIST dataset

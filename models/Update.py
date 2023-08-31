@@ -74,7 +74,8 @@ class LocalUpdate(object):
 
     def train(self, net):
         if self.last_net:
-            copy_layers(self.last_net, net, 7)
+            copy_layers(net, self.last_net, 7)
+            net = copy.deepcopy(self.last_net)
         global_w = copy.deepcopy(net)
         net.train()
         global_w.eval()

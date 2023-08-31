@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 import torch
 import os
 import random
-from utils.sampling import noniid, build_noniid, build_noniid_pfl
+from utils.sampling import noniid, build_noniid
 from utils.options import args_parser
 from models.Update import LocalUpdate, DatasetSplit
 from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5
