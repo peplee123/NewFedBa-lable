@@ -129,7 +129,6 @@ def NewFedBa(w_locals, client_distributed):
         for j in range(i + 1, data.shape[0]):
             dist = jensenshannon(data[i], data[j], base=2)
             dist_matrix[i, j] = dist_matrix[j, i] = dist
-    print(dist_matrix)
     # 执行层次聚类
     Z = linkage(dist_matrix, method='ward')
 
@@ -178,8 +177,6 @@ def NewFedBa(w_locals, client_distributed):
         for k in w_avg.keys():
             for i in index_dict[j]:
                 w_avg[k] += w_locals[i][k]
-
-            w_avg[k] = torch.div(w_avg[k], len(index_dict[j]))
             w_avg[k] = torch.div(w_avg[k], len(index_dict[j]))
         w_global_dict[j] = copy.deepcopy(w_avg)
     # print('多个全局模型字典长度',len(w_global_dict),'全局模型聚合索引',index_dict)

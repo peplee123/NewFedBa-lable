@@ -39,6 +39,30 @@ class DatasetSplit(Dataset):
         return image, label
 
 
+def copy_layers(old_net, new_net, n):
+    """
+    将 old_net 模型的前 n 层参数复制给 new_net 模型。
+
+    参数：
+    old_net (torch.nn.Module): 要复制参数的原始模型。
+    new_net (torch.nn.Module): 要接受参数复制的新模型。
+    n (int): 要复制的层数。
+
+    注意：需要确保 old_net 和 new_net 模型具有相同的层结构，以便复制参数。
+    """
+    if n < 1:
+        raise ValueError("n 必须大于等于 1")
+
+    old_params = list(old_net.parameters())
+    new_params = list(new_net.parameters())
+
+    if len(old_params) < n or len(new_params) < n:
+        raise ValueError("模型的参数数量少于 n")
+
+    for i in range(n):
+        new_params[i].data = copy.deepcopy(old_params[i].data)
+
+
 class LocalUpdate(object):
     def __init__(self, args, dataset=None, idxs=None, test_idxs=None):
         self.args = args
@@ -46,8 +70,11 @@ class LocalUpdate(object):
         self.selected_clients = []
         self.ldr_train = DataLoader(DatasetSplit(dataset, idxs), batch_size=self.args.local_bs, shuffle=True)
         self.ldr_test = DataLoader(DatasetSplit(dataset, test_idxs), batch_size=self.args.local_bs, shuffle=False)
+        self.last_net = None
 
     def train(self, net):
+        if self.last_net:
+            copy_layers(self.last_net, net, 7)
         global_w = copy.deepcopy(net)
         net.train()
         global_w.eval()
@@ -59,7 +86,7 @@ class LocalUpdate(object):
         epoch_loss = []
         everyclient_distributed =[]
         total_local_probs = 0
-        temperature =1
+        temperature = 1
         for iter in range(self.args.local_ep):
             batch_loss = []
             for batch_idx, (images, labels) in enumerate(self.ldr_train):
@@ -97,4 +124,5 @@ class LocalUpdate(object):
         # print('accuracy', accuracyafter)
         # print(f"batch_loss: {sum(batch_loss) / len(batch_loss)}, acc: {accuracy}, test_loss: {test_loss}", )
         # return net, sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
+        self.last_net = copy.deepcopy(net)
         return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed, accuracyafter

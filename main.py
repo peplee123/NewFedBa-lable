@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 import torch
 import os
 import random
-from utils.sampling import mnist_iid, noniid, cifar_iid,cifar_noniid,build_noniid,bingtai_mnist, draw_data_distribution,build_noniid_pfl
+from utils.sampling import noniid, build_noniid, build_noniid_pfl
 from utils.options import args_parser
 from models.Update import LocalUpdate, DatasetSplit
 from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5
@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
             dataset_train = ConcatDataset([dataset_train, dataset_test])
             # train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users,args.dir)
-            train_dict_users, test_dict_users = noniid(args,dataset_train, args.num_users)
+            train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
     elif args.dataset == 'cifar10':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
