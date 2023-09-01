@@ -35,8 +35,12 @@ if __name__ == '__main__':
         else:
 
             dataset_train = ConcatDataset([dataset_train, dataset_test])
-            # train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users,args.dir)
-            train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            if args.type =='dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users,args.dir)
+            else:
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
     elif args.dataset == 'cifar10':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
@@ -84,10 +88,12 @@ if __name__ == '__main__':
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
             dataset_train = ConcatDataset([dataset_train, dataset_test])
-            train_dict_users, test_dict_users = noniid(args,dataset_train, args.num_users)
-            # train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, 0.1)
-            # print(len(train_dict_users))
-            # dict_users = mnist_noniid(dataset_train, args.num_users)
+            if args.type == 'dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
+            else:
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
     elif args.dataset == 'femnist':
         dataset_train = FEMNIST(train=True)
         dataset_test = FEMNIST(train=False)
@@ -101,9 +107,9 @@ if __name__ == '__main__':
 
     # build model
     if args.model == 'cnn' and args.dataset == 'cifar10':
-        # net_glob = CNNCifar(args=args).to(args.device)
+        net_glob = CNNCifar(args=args).to(args.device)
         # net_glob = LeNet(args=args).to(args.device)
-        net_glob = LeNet5(args=args).to(args.device)
+        # net_glob = LeNet5(args=args).to(args.device)
     elif args.model == 'cnn' and args.dataset == 'cifar100':
         net_glob = CNNCifar(args=args).to(args.device)
     elif args.model == 'cnn' and (args.dataset == 'mnist' or args.dataset == 'fashion-mnist'):
@@ -269,7 +275,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(range(len(acc_client)), acc_client)
     plt.ylabel('test accuracy')
-    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc_client.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs))
+    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc_client_{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs,args.beizhu))
 
 
 

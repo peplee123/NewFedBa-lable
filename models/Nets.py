@@ -98,29 +98,40 @@ class CNNMnist(nn.Module):
 
 class CNNCifar(nn.Module):
     def __init__(self, args):
-        super(CNNCifar, self).__init__()
-        # self.conv1 = nn.Conv2d(3, 6, 5)
-        # self.pool = nn.MaxPool2d(2, 2)
-        # self.conv2 = nn.Conv2d(6, 16, 5)
-        self.conv1 = nn.Conv2d(3, 64, 5)
-        self.pool = nn.MaxPool2d(3, 2)
-        self.conv2 = nn.Conv2d(64, 64, 5)
-        # self.fc1 = nn.Linear(16 * 5 * 5, 120)
-        # self.fc2 = nn.Linear(120, 84)
-        # self.fc3 = nn.Linear(84, args.num_classes)
-        self.fc1 = nn.Linear(64 * 4 * 4, 384)
-        self.fc2 = nn.Linear(384, 192)
-        self.fc3 = nn.Linear(192, args.num_classes)
+        super().__init__()
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(3,
+                      32,
+                      kernel_size=5,
+                      padding=0,
+                      stride=1,
+                      bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(32,
+                      64,
+                      kernel_size=5,
+                      padding=0,
+                      stride=1,
+                      bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+        self.fc1 = nn.Sequential(
+            nn.Linear(1600, 512),
+            nn.ReLU(inplace=True)
+        )
+        self.fc = nn.Linear(512, 10)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))
-        x = self.pool(F.relu(self.conv2(x)))
-        #x = x.view(-1, 16 * 5 * 5)
-        x = x.view(-1, 64 * 4 * 4)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return F.log_softmax(x, dim=1)
+        out = self.conv1(x)
+        out = self.conv2(out)
+        out = torch.flatten(out, 1)
+        out = self.fc1(out)
+        out = self.fc(out)
+        return out
 
 
 class CNNFemnist(nn.Module):
