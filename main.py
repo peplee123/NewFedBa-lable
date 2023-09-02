@@ -60,6 +60,7 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
+            dataset_train = ConcatDataset([dataset_train, dataset_test])
             if args.type == 'dir':
                 print("dir")
                 train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
@@ -85,6 +86,7 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
+            dataset_train = ConcatDataset([dataset_train, dataset_test])
             if args.type == 'dir':
                 print("dir")
                 train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
@@ -102,6 +104,7 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:
+
             dataset_train = ConcatDataset([dataset_train, dataset_test])
             if args.type == 'dir':
                 print("dir")
