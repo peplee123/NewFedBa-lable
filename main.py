@@ -35,12 +35,14 @@ if __name__ == '__main__':
         else:
 
             dataset_train = ConcatDataset([dataset_train, dataset_test])
-            if args.type =='dir':
+            if args.type == 'dir':
                 print("dir")
-                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users,args.dir)
-            else:
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
+            elif args.type == 'pon':
                 print("Pon")
                 train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            else:
+                print("type is none")
     elif args.dataset == 'cifar10':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
@@ -58,8 +60,14 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
-            dataset_train = ConcatDataset([dataset_train, dataset_test])
-            train_dict_users, test_dict_users = noniid(args,dataset_train, args.num_users)
+            if args.type == 'dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
+            elif args.type == 'pon':
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            else:
+                print("type is none")
     elif args.dataset == 'cifar100':
         #trans_cifar = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         trans_cifar_train = transforms.Compose([
@@ -77,7 +85,14 @@ if __name__ == '__main__':
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
-            dict_users = build_noniid(dataset_train, args.num_users,10)
+            if args.type == 'dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
+            elif args.type == 'pon':
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            else:
+                print("type is none")
     elif args.dataset == 'fashion-mnist':
         trans_fashion_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
         dataset_train = datasets.FashionMNIST('./data/fashion-mnist', train=True, download=True,
@@ -91,9 +106,11 @@ if __name__ == '__main__':
             if args.type == 'dir':
                 print("dir")
                 train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
-            else:
+            elif args.type == 'pon':
                 print("Pon")
                 train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            else:
+                print("type is none")
     elif args.dataset == 'femnist':
         dataset_train = FEMNIST(train=True)
         dataset_test = FEMNIST(train=False)
@@ -102,22 +119,27 @@ if __name__ == '__main__':
         if args.iid:
             exit('Error: femnist dataset is naturally non-iid')
         else:
-            train_dict_users, test_dict_users = noniid(dataset_train, args.num_users)
+            dataset_train = ConcatDataset([dataset_train, dataset_test])
+            if args.type == 'dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
+            elif args.type == 'pon':
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            else:
+                print("type is none")
     img_size = dataset_train[0][0].shape
 
     # build model
     if args.model == 'cnn' and args.dataset == 'cifar10':
         net_glob = CNNCifar(args=args).to(args.device)
-        # net_glob = LeNet(args=args).to(args.device)
-        # net_glob = LeNet5(args=args).to(args.device)
+        print("model is cnn")
     elif args.model == 'cnn' and args.dataset == 'cifar100':
         net_glob = CNNCifar(args=args).to(args.device)
+        print("model is cnn")
     elif args.model == 'cnn' and (args.dataset == 'mnist' or args.dataset == 'fashion-mnist'):
-        # net_glob = torch.load('model80.pt')
-        # net_glob = CNNMnist(args=args).to(args.device)  # 先定义相同结构的模型对象
-        # net_glob.load_state_dict(torch.load('model_params.pth', map_location=torch.device('cpu')))
-        # net_glob = LeNet5(args=args).to(args.device)
         net_glob = CNNMnist(args=args).to(args.device)
+        print("model is cnn")
     elif args.dataset == 'femnist' and args.model == 'cnn':
         net_glob = CNNFemnist(args=args).to(args.device)
     elif args.dataset == 'shakespeare' and args.model == 'lstm':
