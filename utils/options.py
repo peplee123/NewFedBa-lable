@@ -10,8 +10,8 @@ import argparse
 def args_parser():
     parser = argparse.ArgumentParser()
     # federated arguments
-    parser.add_argument('--type', type=str, default='dir', help="noniid label number of client ")
-    parser.add_argument('--dir', type=int, default=0.1, help="noniid label number of client ")
+    parser.add_argument('--type', type=str, default='null', help="noniid label number of client ")
+    parser.add_argument('--dir', type=float, default=0.1, help="noniid label number of client ")
     parser.add_argument('--bingtai', type=int, default=2, help="noniid label number of client ")
     parser.add_argument('--beizhu', type=str, default='8.31P20Mnist', help="rounds of training")
     parser.add_argument('--epochs', type=int, default=400 ,help="rounds of training")
@@ -36,7 +36,7 @@ def args_parser():
                         help="Whether use max pooling rather than strided convolutions")
 
     # other arguments
-    parser.add_argument('--dataset', type=str, default='cifar10', help="name of dataset")
+    parser.add_argument('--dataset', type=str, default='mnist', help="name of dataset")
     parser.add_argument('--iid', action='store_true', help='whether i.i.d or not')
     parser.add_argument('--num_classes', type=int, default=10, help="number of classes")
     parser.add_argument('--num_channels', type=int, default=1 , help="number of channels of imges")
