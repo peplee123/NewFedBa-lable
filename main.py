@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 import torch
 import os
 import random
-from utils.sampling import noniid, build_noniid
+from utils.sampling import noniid, build_noniid,build_noniid_agnews
 from utils.options import args_parser
 from models.Update import LocalUpdate, DatasetSplit
 from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5
@@ -18,6 +18,10 @@ from models.Fed import FedAvg,FedBa,NewFedBa
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare
 from torch.utils.data import ConcatDataset
+import torch
+from torchtext.datasets import AG_NEWS
+from torchtext.data.utils import get_tokenizer
+from torchtext.data.functional import to_map_style_dataset
 
 if __name__ == '__main__':
     # parse args
@@ -25,11 +29,34 @@ if __name__ == '__main__':
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
 
     # load dataset and split users
-    if args.dataset == 'mnist':
+    if args.dataset == 'agnews':
+        # 基本的英文tokenizer
+        tokenizer = get_tokenizer('basic_english')
+
+        # 加载AG News数据集
+        train_iter, test_iter = AG_NEWS(root="./data/agnews", split=('train', 'test'))
+        train_dataset = to_map_style_dataset(train_iter)
+        test_dataset = to_map_style_dataset(test_iter)
+
+        # 判断是IID还是non-IID的划分
+        if args.iid:
+            dict_users = mnist_iid(train_dataset, args.num_users)
+        else:
+            train_dataset = train_dataset + test_dataset
+            if args.type == 'dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid_agnews(train_dataset, args.num_users, args.dir)
+            elif args.type == 'pon':
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, train_dataset, args.num_users)
+            else:
+                print("type is none")
+
+    elif args.dataset == 'mnist':
         trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
         dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True, transform=trans_mnist)
         dataset_test = datasets.MNIST('./data/mnist/', train=False, download=True, transform=trans_mnist)
-        # sample users
+
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
         else:

@@ -152,7 +152,7 @@ def NewFedBa(w_locals, client_distributed):
     diff = np.diff(wcss)
     knee = np.argmax(diff) + 1
     optimal_num_clusters = cluster_range[knee]
-    # print("Optimal number of clusters:", optimal_num_clusters)
+    print("Optimal number of clusters:", optimal_num_clusters)
 
     labels = fcluster(Z, optimal_num_clusters, 'maxclust')
     print("Cluster assignments:", labels)

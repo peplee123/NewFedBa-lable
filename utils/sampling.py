@@ -65,6 +65,43 @@ def bingtai_mnist(dataset,num_clients, num_classes_per_client, num_samples_per_c
     draw_data_distribution(dict_users, dataset, 10)
     return dict_users
 
+def build_noniid_agnews(dataset, num_users, alpha):
+    print("DDDD1")
+    train_labels = np.array([], dtype="int64")
+
+    # 提取AG_NEWS数据集的标签
+    for (text, label) in dataset:
+        train_labels = np.append(train_labels, label)
+
+    n_classes = np.max(train_labels) + 1
+    label_distribution = np.random.dirichlet([alpha] * num_users, n_classes)
+    # (K, N)的类别标签分布矩阵X，记录每个client占有每个类别的多少
+
+    class_idxs = [np.argwhere(train_labels == y).flatten()
+                  for y in range(n_classes)]
+    # 记录每个K类别对应的样本下标
+
+    client_idxs = [[] for _ in range(num_users)]
+    # 记录N个client分别对应样本集合的索引
+    for c, fracs in zip(class_idxs, label_distribution):
+        # np.split按照比例将类别为k的样本划分为了N个子集
+        # for i, idxs 为遍历第i个client对应样本集合的索引
+        for i, idxs in enumerate(np.split(c, (np.cumsum(fracs)[:-1] * len(c)).astype(int))):
+            client_idxs[i] += [idxs]
+
+    client_idxs = [np.concatenate(idxs) for idxs in client_idxs]
+    #
+    train_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
+    test_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
+
+    for i in range(len(client_idxs)):
+        data = client_idxs[i]
+        train_dict_users[i], test_dict_users[i] = train_test_split(data, train_size=0.8, shuffle=True)
+
+    # draw_data_distribution(train_dict_users, dataset, n_classes)
+    # draw_data_distribution(test_dict_users, dataset, n_classes)
+    return train_dict_users, test_dict_users
+
 
 def build_noniid(dataset, num_users, alpha):
     print("DDDD1")
