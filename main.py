@@ -14,7 +14,7 @@ from utils.sampling import noniid, build_noniid,build_noniid_agnews, separate_da
 from utils.options import args_parser
 from utils.dataset import CustomAGNewsDataset
 from models.Update import LocalUpdate, DatasetSplit
-from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5, TextCNN, CNNTinyImage
+from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5, TextCNN, CNNTinyImage, CNNCifar100
 from models.Fed import FedAvg,FedBa, NewFedBa
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare, ImageFolder_custom, CustomImageDataset
@@ -248,7 +248,7 @@ if __name__ == '__main__':
         net_glob = CNNCifar(args=args).to(args.device)
         print("model is cnn")
     elif args.model == 'cnn' and args.dataset == 'cifar100':
-        net_glob = CNNCifar(args=args).to(args.device)
+        net_glob = CNNCifar100(args=args).to(args.device)
         print("model is cnn")
     elif args.model == 'cnn' and (args.dataset == 'mnist' or args.dataset == 'fashion-mnist'):
         net_glob = CNNMnist(args=args).to(args.device)
