@@ -10,18 +10,20 @@ from torchvision import datasets, transforms
 import torch
 import os
 import random
-from utils.sampling import noniid, build_noniid,build_noniid_agnews
+from utils.sampling import noniid, build_noniid,build_noniid_agnews, separate_data
 from utils.options import args_parser
+from utils.dataset import CustomAGNewsDataset
 from models.Update import LocalUpdate, DatasetSplit
-from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5
-from models.Fed import FedAvg,FedBa,NewFedBa
+from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5, TextCNN, CNNTinyImage
+from models.Fed import FedAvg,FedBa, NewFedBa
 from models.test import test_img
-from utils.dataset import FEMNIST, ShakeSpeare
-from torch.utils.data import ConcatDataset
+from utils.dataset import FEMNIST, ShakeSpeare, ImageFolder_custom, CustomImageDataset
+from torch.utils.data import ConcatDataset, Dataset
 import torch
 from torchtext.datasets import AG_NEWS
 from torchtext.data.utils import get_tokenizer
 from torchtext.data.functional import to_map_style_dataset
+from torchtext.vocab import build_vocab_from_iterator
 
 if __name__ == '__main__':
     # parse args
@@ -31,21 +33,63 @@ if __name__ == '__main__':
     # load dataset and split users
     if args.dataset == 'agnews':
         # 基本的英文tokenizer
+        max_len = 200
         tokenizer = get_tokenizer('basic_english')
 
         # 加载AG News数据集
-        train_iter, test_iter = AG_NEWS(root="./data/agnews", split=('train', 'test'))
-        train_dataset = to_map_style_dataset(train_iter)
-        test_dataset = to_map_style_dataset(test_iter)
+        trainset, testset = AG_NEWS(root="./data/agnews")
 
+        trainlabel, traintext = list(zip(*trainset))
+        testlabel, testtext = list(zip(*testset))
+
+        dataset_text = []
+        dataset_label = []
+
+        dataset_text.extend(traintext)
+        dataset_text.extend(testtext)
+        dataset_label.extend(trainlabel)
+        dataset_label.extend(testlabel)
+
+        tokenizer = get_tokenizer('basic_english')
+        vocab = build_vocab_from_iterator(map(tokenizer, iter(dataset_text)), specials=["<unk>"])
+        vocab.set_default_index(vocab["<unk>"])
+
+        text_pipeline = lambda x: vocab(tokenizer(x))
+        label_pipeline = lambda x: int(x) - 1
+
+
+        def text_transform(text, label, max_len=0):
+            label_list, text_list = [], []
+            for _text, _label in zip(text, label):
+                label_list.append(label_pipeline(_label))
+                text_ = text_pipeline(_text)
+                padding = [0 for i in range(max_len - len(text_))]
+                text_.extend(padding)
+                text_list.append(text_[:max_len])
+            return label_list, text_list
+
+
+        label_list, text_list = text_transform(dataset_text, dataset_label, max_len)
+
+        text_lens = [len(text) for text in text_list]
+        # max_len = max(text_lens)
+        # label_list, text_list = text_transform(dataset_text, dataset_label, max_len)
+
+        text_list = [(text, l) for text, l in zip(text_list, text_lens)]
+
+        text_list = np.array(text_list, dtype=object)
+        label_list = np.array(label_list)
+
+        dataset_train = CustomAGNewsDataset(text_list, label_list)
         # 判断是IID还是non-IID的划分
         if args.iid:
             dict_users = mnist_iid(train_dataset, args.num_users)
         else:
-            train_dataset = train_dataset + test_dataset
             if args.type == 'dir':
                 print("dir")
-                train_dict_users, test_dict_users = build_noniid_agnews(train_dataset, args.num_users, args.dir)
+                # X, y = separate_data((text_list, label_list), args.num_users, args.num_classes, niid=args.iid is False, balance=False, partition=args.type, class_per_client=args.bingtai, alpha=args.dir)
+                # print(X, y)
+                train_dict_users, test_dict_users = build_noniid_agnews([(text_list, label_list)], args.num_users, args.dir)
             elif args.type == 'pon':
                 print("Pon")
                 train_dict_users, test_dict_users = noniid(args, train_dataset, args.num_users)
@@ -158,7 +202,46 @@ if __name__ == '__main__':
                 train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
             else:
                 print("type is none")
-    img_size = dataset_train[0][0].shape
+    elif args.dataset == "tiny-image":
+        transform = transforms.Compose(
+            [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        trainset = ImageFolder_custom(root='./data/tiny-imagenet-200/train/', transform=transform)
+        testset = ImageFolder_custom(root='./data/tiny-imagenet-200/val/', transform=transform)
+        trainloader = torch.utils.data.DataLoader(
+            trainset, batch_size=len(trainset), shuffle=False)
+        testloader = torch.utils.data.DataLoader(
+            testset, batch_size=len(testset), shuffle=False)
+
+        for _, train_data in enumerate(trainloader, 0):
+            trainset.data, trainset.targets = train_data
+        for _, test_data in enumerate(testloader, 0):
+            testset.data, testset.targets = test_data
+
+        dataset_image = []
+        dataset_label = []
+
+        dataset_image.extend(trainset.data.cpu().detach().numpy())
+        dataset_image.extend(testset.data.cpu().detach().numpy())
+        dataset_label.extend(trainset.targets.cpu().detach().numpy())
+        dataset_label.extend(testset.targets.cpu().detach().numpy())
+        dataset_image = np.array(dataset_image)
+        dataset_label = np.array(dataset_label)
+
+        if args.iid:
+            exit('Error: not support')
+        else:
+            dataset_train = ConcatDataset([CustomImageDataset(dataset_image, dataset_label)])
+            if args.type == 'dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
+            elif args.type == 'pon':
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            else:
+                print("type is none")
+
+    # img_size = dataset_train[0][0].shape
 
     # build model
     if args.model == 'cnn' and args.dataset == 'cifar10':
@@ -174,11 +257,15 @@ if __name__ == '__main__':
         net_glob = CNNFemnist(args=args).to(args.device)
     elif args.dataset == 'shakespeare' and args.model == 'lstm':
         net_glob = CharLSTM().to(args.device)
-    elif args.model == 'mlp':
-        len_in = 1
-        for x in img_size:
-            len_in *= x
-        net_glob = MLP(dim_in=len_in, dim_hidden=64, dim_out=args.num_classes).to(args.device)
+    elif args.dataset == 'agnews':
+         net_glob = TextCNN(1).to(args.device)
+    elif args.dataset == 'tiny-image':
+        net_glob = CNNTinyImage(args=args).to(args.device)
+    # elif args.model == 'mlp':
+    #     len_in = 1
+    #     for x in img_size:
+    #         len_in *= x
+    #     net_glob = MLP(dim_in=len_in, dim_hidden=64, dim_out=args.num_classes).to(args.device)
     else:
         exit('Error: unrecognized model')
     print(net_glob)

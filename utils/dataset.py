@@ -5,6 +5,7 @@ import numpy as np
 from torch.utils.data import Dataset
 import torch
 from utils.language_utils import word_to_indices, letter_to_vec
+from torchvision.datasets import ImageFolder, DatasetFolder
 
 
 class FEMNIST(Dataset):
@@ -171,7 +172,6 @@ def read_dir(data_dir):
     return clients, groups, data
 
 
-
 def read_data(train_data_dir, test_data_dir):
     '''parses data in given train and test data directories
 
@@ -193,6 +193,86 @@ def read_data(train_data_dir, test_data_dir):
     assert train_groups == test_groups
 
     return train_clients, train_groups, train_data, test_data
+
+
+import torch
+from torch.utils.data import Dataset
+
+
+class CustomAGNewsDataset(Dataset):
+    def __init__(self, text_list, label_list):
+        # Assuming text_list contains (text, text_len) tuples
+        self.text_list = text_list
+        self.label_list = label_list
+
+    def __len__(self):
+        # Return the total number of samples in the dataset
+        return len(self.label_list)
+
+    def __getitem__(self, idx):
+        # Retrieve the (text, text_len) tuple and label based on the index (idx)
+        text, text_len = self.text_list[idx]
+        label = self.label_list[idx]
+
+        # Convert the data to PyTorch tensors
+        text = torch.tensor(text, dtype=torch.long)
+        label = torch.tensor(label, dtype=torch.long)
+
+        return text, label
+
+
+
+class ImageFolder_custom(DatasetFolder):
+    def __init__(self, root, dataidxs=None, train=True, transform=None, target_transform=None):
+        self.root = root
+        self.dataidxs = dataidxs
+        self.train = train
+        self.transform = transform
+        self.target_transform = target_transform
+
+        imagefolder_obj = ImageFolder(self.root, self.transform, self.target_transform)
+        self.loader = imagefolder_obj.loader
+        if self.dataidxs is not None:
+            self.samples = np.array(imagefolder_obj.samples)[self.dataidxs]
+        else:
+            self.samples = np.array(imagefolder_obj.samples)
+
+    def __getitem__(self, index):
+        path = self.samples[index][0]
+        target = self.samples[index][1]
+        target = int(target)
+        sample = self.loader(path)
+        if self.transform is not None:
+            sample = self.transform(sample)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return sample, target
+
+    def __len__(self):
+        if self.dataidxs is None:
+            return len(self.samples)
+        else:
+            return len(self.dataidxs)
+
+
+class CustomImageDataset(Dataset):
+    def __init__(self, images, labels):
+        self.images = images
+        self.targets = labels
+
+    def __len__(self):
+        return len(self.targets)
+
+    def __getitem__(self, idx):
+        image = self.images[idx]
+        label = self.targets[idx]
+
+        # Convert the data to PyTorch tensors
+        image = torch.tensor(image, dtype=torch.float32)  # Assuming images were normalized and have float values
+        label = torch.tensor(label, dtype=torch.long)
+
+        return image, label
 
 
 # if __name__ == '__main__':
