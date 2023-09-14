@@ -14,7 +14,7 @@ from utils.sampling import noniid, build_noniid,build_noniid_agnews, separate_da
 from utils.options import args_parser
 from utils.dataset import CustomAGNewsDataset
 from models.Update import LocalUpdate, DatasetSplit
-from models.Nets import MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5, TextCNN, CNNTinyImage, CNNCifar100
+from models.Nets import resnet18,MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5, TextCNN, CNNTinyImage, CNNCifar100
 from models.Fed import FedAvg,FedBa, NewFedBa
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare, ImageFolder_custom, CustomImageDataset
@@ -260,12 +260,7 @@ if __name__ == '__main__':
     elif args.dataset == 'agnews':
          net_glob = TextCNN(1).to(args.device)
     elif args.dataset == 'tiny-image':
-        net_glob = CNNTinyImage(args=args).to(args.device)
-    # elif args.model == 'mlp':
-    #     len_in = 1
-    #     for x in img_size:
-    #         len_in *= x
-    #     net_glob = MLP(dim_in=len_in, dim_hidden=64, dim_out=args.num_classes).to(args.device)
+        net_glob = resnet18(num_classes=200).to(args.device)
     else:
         exit('Error: unrecognized model')
     print(net_glob)
