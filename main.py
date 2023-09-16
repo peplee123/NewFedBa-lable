@@ -14,7 +14,7 @@ from utils.sampling import noniid, build_noniid,build_noniid_agnews, separate_da
 from utils.options import args_parser
 from utils.dataset import CustomAGNewsDataset
 from models.Update import LocalUpdate, DatasetSplit
-from models.Nets import resnet18,MLP, CNNMnist, CNNCifar, CNNFemnist, CharLSTM,LeNet,LeNet5, TextCNN, CNNTinyImage, CNNCifar100
+from models.Nets import LeNet5Cifar,LeNet5Fmnist,resnet18,MLP, CNNMnist, CNNCifar, CNNFemnist, fastText, CNNTinyImage, CNNCifar100,ResNet9
 from models.Fed import FedAvg,FedBa, NewFedBa
 from models.test import test_img
 from utils.dataset import FEMNIST, ShakeSpeare, ImageFolder_custom, CustomImageDataset
@@ -24,11 +24,38 @@ from torchtext.datasets import AG_NEWS
 from torchtext.data.utils import get_tokenizer
 from torchtext.data.functional import to_map_style_dataset
 from torchtext.vocab import build_vocab_from_iterator
+from torchvision import transforms, datasets
+from torch.utils.data import ConcatDataset
 
 if __name__ == '__main__':
     # parse args
     args = args_parser()
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
+
+
+
+
+    if args.dataset == 'svhn':
+
+        trans_svhn = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        # 下载和加载训练集和测试集
+        dataset_train = datasets.SVHN(root='./data/svhn/', split='train', download=True, transform=trans_svhn)
+        dataset_test = datasets.SVHN(root='./data/svhn/', split='test', download=True, transform=trans_svhn)
+
+        if args.iid:
+            dict_users = svhn_iid(dataset_train, args.num_users)  # 注意：你需要定义一个svhn_iid函数或者复用mnist_iid
+        else:
+            # 合并训练集和测试集
+            dataset_train = ConcatDataset([dataset_train, dataset_test])
+            if args.type == 'dir':
+                print("dir")
+                train_dict_users, test_dict_users = build_noniid(dataset_train, args.num_users, args.dir)
+            elif args.type == 'pon':
+                print("Pon")
+                train_dict_users, test_dict_users = noniid(args, dataset_train, args.num_users)
+            else:
+                print("type is none")
 
     # load dataset and split users
     if args.dataset == 'agnews':
@@ -170,7 +197,7 @@ if __name__ == '__main__':
         trans_fashion_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
         dataset_train = datasets.FashionMNIST('./data/fashion-mnist', train=True, download=True,
                                               transform=trans_fashion_mnist)
-        dataset_test  = datasets.FashionMNIST('./data/fashion-mnist', train=False, download=True,
+        dataset_test = datasets.FashionMNIST('./data/fashion-mnist', train=False, download=True,
                                               transform=trans_fashion_mnist)
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
@@ -245,22 +272,24 @@ if __name__ == '__main__':
 
     # build model
     if args.model == 'cnn' and args.dataset == 'cifar10':
-        net_glob = CNNCifar(args=args).to(args.device)
-        print("model is cnn")
+        net_glob = LeNet5Cifar(num_classes=10).to(args.device)
+        print("model is lenet")
     elif args.model == 'cnn' and args.dataset == 'cifar100':
-        net_glob = CNNCifar100(args=args).to(args.device)
-        print("model is cnn")
+        net_glob =ResNet9(in_channels=3,num_classes=100).to(args.device)
+        print("model is lenet")
     elif args.model == 'cnn' and (args.dataset == 'mnist' or args.dataset == 'fashion-mnist'):
-        net_glob = CNNMnist(args=args).to(args.device)
-        print("model is cnn")
+        net_glob = LeNet5Fmnist(num_classes=10).to(args.device)
+        print("model is lenet")
     elif args.dataset == 'femnist' and args.model == 'cnn':
         net_glob = CNNFemnist(args=args).to(args.device)
     elif args.dataset == 'shakespeare' and args.model == 'lstm':
         net_glob = CharLSTM().to(args.device)
     elif args.dataset == 'agnews':
-         net_glob = TextCNN(1).to(args.device)
+        net_glob = fastText(hidden_dim=32, vocab_size=98635, num_classes=4).to(args.device)
     elif args.dataset == 'tiny-image':
         net_glob = resnet18(num_classes=200).to(args.device)
+    elif args.model == 'cnn' and args.dataset == 'svhn':
+        net_glob = LeNet5Cifar(num_classes=10).to(args.device)
     else:
         exit('Error: unrecognized model')
     print(net_glob)

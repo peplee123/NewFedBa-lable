@@ -6,6 +6,214 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
+import torch
+import torch.nn as nn
+
+import torch.nn as nn
+import torch.nn.functional as F
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+import torch.nn as nn
+
+def conv_bn_relu_pool(in_channels, out_channels, pool=False):
+    layers = [
+        nn.Conv2d(in_channels=in_channels, out_channels=out_channels, kernel_size=3, padding=1),
+        #nn.BatchNorm2d(out_channels),
+        nn.GroupNorm(32,out_channels),
+        nn.ReLU(inplace=True)
+    ]
+    if pool:
+        layers.append(nn.MaxPool2d(2))
+    return nn.Sequential(*layers)
+
+class ResNet9(nn.Module):
+    def __init__(self, in_channels, num_classes, dim=512):
+        super().__init__()
+        self.prep = conv_bn_relu_pool(in_channels, 64)
+        self.layer1_head = conv_bn_relu_pool(64, 128, pool=True)
+        self.layer1_residual = nn.Sequential(conv_bn_relu_pool(128, 128), conv_bn_relu_pool(128, 128))
+        self.layer2 = conv_bn_relu_pool(128, 256, pool=True)
+        self.layer3_head = conv_bn_relu_pool(256, 512, pool=True)
+        self.layer3_residual = nn.Sequential(conv_bn_relu_pool(512, 512), conv_bn_relu_pool(512, 512))
+        self.MaxPool2d = nn.Sequential(
+            nn.MaxPool2d(4))
+        self.linear = nn.Linear(dim, num_classes)
+        # self.classifier = nn.Sequential(
+        #     nn.MaxPool2d(4),
+        #     nn.Flatten(),
+        #     nn.Linear(512, num_classes))
+
+
+    def forward(self, x):
+        x = self.prep(x)
+        x = self.layer1_head(x)
+        x = self.layer1_residual(x) + x
+        x = self.layer2(x)
+        x = self.layer3_head(x)
+        x = self.layer3_residual(x) + x
+        x = self.MaxPool2d(x)
+        x = x.view(x.size(0), -1)
+        #print(x.shape)
+        x = self.linear(x)
+        return x
+
+# # 定义一个基础的卷积块
+# def conv3x3(in_channels, out_channels, stride=1):
+#     return nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False)
+#
+# # 定义一个Residual Block
+# class ResidualBlock(nn.Module):
+#     def __init__(self, in_channels, out_channels, stride=1, downsample=None):
+#         super(ResidualBlock, self).__init__()
+#         self.conv1 = conv3x3(in_channels, out_channels, stride)
+#         self.bn1 = nn.BatchNorm2d(out_channels)
+#         self.relu = nn.ReLU(inplace=True)
+#         self.conv2 = conv3x3(out_channels, out_channels)
+#         self.bn2 = nn.BatchNorm2d(out_channels)
+#         self.downsample = downsample
+#
+#     def forward(self, x):
+#         residual = x
+#         out = self.conv1(x)
+#         out = self.bn1(out)
+#         out = self.relu(out)
+#         out = self.conv2(out)
+#         out = self.bn2(out)
+#         if self.downsample:
+#             residual = self.downsample(x)
+#         out += residual
+#         out = self.relu(out)
+#         return out
+#
+# class ResNet9(nn.Module):
+#     def __init__(self, num_classes=100):
+#         super(ResNet9, self).__init__()
+#         self.in_channels = 64
+#         self.conv = conv3x3(3, 64)
+#         self.bn = nn.BatchNorm2d(64)
+#         self.relu = nn.ReLU(inplace=True)
+#         self.layer1 = self.make_layer(ResidualBlock, 64, 1)
+#         self.layer2 = self.make_layer(ResidualBlock, 128, 2, 2)
+#         self.layer3 = self.make_layer(ResidualBlock, 256, 2, 2)
+#         self.avg_pool = nn.AdaptiveAvgPool2d(1)
+#         self.fc = nn.Linear(256, num_classes)
+#
+#     def make_layer(self, block, out_channels, blocks, stride=1):
+#         downsample = None
+#         if (stride != 1) or (self.in_channels != out_channels):
+#             downsample = nn.Sequential(
+#                 conv3x3(self.in_channels, out_channels, stride=stride),
+#                 nn.BatchNorm2d(out_channels)
+#             )
+#         layers = []
+#         layers.append(block(self.in_channels, out_channels, stride, downsample))
+#         self.in_channels = out_channels
+#         for i in range(1, blocks):
+#             layers.append(block(out_channels, out_channels))
+#         return nn.Sequential(*layers)
+#
+#     def forward(self, x):
+#         out = self.conv(x)
+#         out = self.bn(out)
+#         out = self.relu(out)
+#         out = self.layer1(out)
+#         out = self.layer2(out)
+#         out = self.layer3(out)
+#         out = self.avg_pool(out)
+#         out = out.view(out.size(0), -1)
+#         out = self.fc(out)
+#         return out
+
+
+
+
+
+class LeNet5Fmnist(nn.Module):
+    def __init__(self, num_classes=10):
+
+        super(LeNet5Fmnist, self).__init__()
+
+
+        # 使用与CNNMnist相同的参数来调整LeNet的卷积层
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(1, 32, kernel_size=5, padding=0, stride=1, bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=5, padding=0, stride=1, bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+
+        # 使用与CNNMnist相同的参数来调整LeNet的全连接层
+        self.fc1 = nn.Sequential(
+            nn.Linear(1024, 512),
+            nn.ReLU(inplace=True)
+        )
+        self.fc2 = nn.Sequential(
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True)
+        )
+
+        self.fc = nn.Linear(256, 10)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = torch.flatten(x, 1)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc(x)
+        return x
+
+
+class LeNet5Cifar(nn.Module):
+    def __init__(self, num_classes=10):
+
+        super(LeNet5Cifar, self).__init__()
+
+
+        # 使用与CNNMnist相同的参数来调整LeNet的卷积层
+        self.conv1 = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=5, padding=0, stride=1, bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=5, padding=0, stride=1, bias=True),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 2))
+        )
+
+        # 使用与CNNMnist相同的参数来调整LeNet的全连接层
+        self.fc1 = nn.Sequential(
+            nn.Linear(1600, 512),
+            nn.ReLU(inplace=True)
+        )
+        self.fc2 = nn.Sequential(
+            nn.Linear(512, 256),
+            nn.ReLU(inplace=True)
+        )
+
+        self.fc = nn.Linear(256, num_classes)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.conv2(x)
+        x = torch.flatten(x, 1)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc(x)
+        return x
+
+
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
@@ -89,8 +297,6 @@ class ResNet(nn.Module):
 def resnet18(pretrained=False, **kwargs):
     model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
     return model
-
-
 
 class MLP(nn.Module):
     def __init__(self, dim_in, dim_hidden, dim_out):
@@ -295,54 +501,28 @@ class CNNTinyImage(nn.Module):
         return out
 
 
-class TextCNN(nn.Module):
-    def __init__(self, hidden_dim, num_channels=100, kernel_size=[3, 4, 5], max_len=200, dropout=0.8,
-                 padding_idx=0, vocab_size=98635, num_classes=4):
-        super(TextCNN, self).__init__()
+class fastText(nn.Module):
+    def __init__(self, hidden_dim, padding_idx=0, vocab_size=98635, num_classes=10):
+        super(fastText, self).__init__()
 
         # Embedding Layer
         self.embedding = nn.Embedding(vocab_size, hidden_dim, padding_idx)
 
-        # This stackoverflow thread clarifies how conv1d works
-        # https://stackoverflow.com/questions/46503816/keras-conv1d-layer-parameters-filters-and-kernel-size/46504997
-        self.conv1 = nn.Sequential(
-            nn.Conv1d(in_channels=hidden_dim, out_channels=num_channels, kernel_size=kernel_size[0]),
-            nn.ReLU(),
-            nn.MaxPool1d(max_len - kernel_size[0] + 1)
-        )
-        self.conv2 = nn.Sequential(
-            nn.Conv1d(in_channels=hidden_dim, out_channels=num_channels, kernel_size=kernel_size[1]),
-            nn.ReLU(),
-            nn.MaxPool1d(max_len - kernel_size[1] + 1)
-        )
-        self.conv3 = nn.Sequential(
-            nn.Conv1d(in_channels=hidden_dim, out_channels=num_channels, kernel_size=kernel_size[2]),
-            nn.ReLU(),
-            nn.MaxPool1d(max_len - kernel_size[2] + 1)
-        )
+        # Hidden Layer
+        self.fc1 = nn.Linear(hidden_dim, hidden_dim)
 
-        self.dropout = nn.Dropout(dropout)
-
-        # Fully-Connected Layer
-        self.fc = nn.Linear(num_channels * len(kernel_size), num_classes)
+        # Output Layer
+        self.fc = nn.Linear(hidden_dim, num_classes)
 
     def forward(self, x):
         text = x
-        text_lengths = len(x)
 
-        embedded_sent = self.embedding(text).permute(0, 2, 1)
-
-        conv_out1 = self.conv1(embedded_sent).squeeze(2)
-        conv_out2 = self.conv2(embedded_sent).squeeze(2)
-        conv_out3 = self.conv3(embedded_sent).squeeze(2)
-
-        all_out = torch.cat((conv_out1, conv_out2, conv_out3), 1)
-        final_feature_map = self.dropout(all_out)
-        out = self.fc(final_feature_map)
-        out = F.log_softmax(out, dim=1)
+        embedded_sent = self.embedding(text)
+        h = self.fc1(embedded_sent.mean(1))
+        z = self.fc(h)
+        out = z
 
         return out
-
 
 class CNNFemnist(nn.Module):
     def __init__(self, args):
@@ -362,64 +542,8 @@ class CNNFemnist(nn.Module):
         return self.out(x)
 
 
-class CharLSTM(nn.Module):
-    def __init__(self):
-        super(CharLSTM, self).__init__()
-        self.embed = nn.Embedding(80, 8)
-        self.lstm = nn.LSTM(8, 256, 2, batch_first=True)
-        # self.h0 = torch.zeros(2, batch_size, 256).requires_grad_()
-        self.drop = nn.Dropout()
-        self.out = nn.Linear(256, 80)
-
-    def forward(self, x):
-        x = self.embed(x)
-        # if self.h0.size(1) == x.size(0):
-        #     self.h0.data.zero_()
-        #     # self.c0.data.zero_()
-        # else:
-        #     # resize hidden vars
-        #     device = next(self.parameters()).device
-        #     self.h0 = torch.zeros(2, x.size(0), 256).to(device).requires_grad_()
-        x, hidden = self.lstm(x)
-        x = self.drop(x)
-        # x = x.contiguous().view(-1, 256)
-        # x = x.contiguous().view(-1, 256)
-        return self.out(x[:, -1, :])
-
-    # def init_hidden(self, batch_size):
-    #     weight = next(self.parameters()).data
-    #
-    #     initial_hidden = (weight.new(2, batch_size, 256).zero_(),
-    #                       weight.new(2, batch_size, 256).zero_())
-    #
-    #     return initial_hidden
 
 
-class LeNet5(nn.Module):
-    def __init__(self, args):
-        super(LeNet5, self).__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(args.num_channels, 6, kernel_size=5),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2),
-            nn.Conv2d(6, 16, kernel_size=5),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2)
-        )
-        self.classifier = nn.Sequential(
-            # nn.Linear(16 * 5 * 5, 120),
-            nn.Linear(256, 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU(),
-            nn.Linear(64,10)
-        )
-
-    def forward(self, x):
-        x = self.features(x)
-        x = x.view(x.size(0), -1)
-        x = self.classifier(x)
-        return x
 def init_weights(m):
     classname = m.__class__.__name__
     if classname.find('Conv2d') != -1 or classname.find('ConvTranspose2d') != -1:
@@ -431,34 +555,3 @@ def init_weights(m):
     elif classname.find('Linear') != -1:
         nn.init.xavier_normal_(m.weight)
         nn.init.zeros_(m.bias)
-class LeNet(nn.Module):
-    def __init__(self, feature_dim=50*4*4, bottleneck_dim=256, num_classes=10, iswn=None):
-        super(LeNet, self).__init__()
-
-        self.conv_params = nn.Sequential(
-            nn.Conv2d(1, 20, kernel_size=5),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-            nn.Conv2d(20, 50, kernel_size=5),
-            nn.Dropout2d(p=0.5),
-            nn.MaxPool2d(2),
-            nn.ReLU(),
-        )
-        self.bn = nn.BatchNorm1d(bottleneck_dim, affine=True)
-        self.dropout = nn.Dropout(p=0.5)
-        self.bottleneck = nn.Linear(feature_dim, bottleneck_dim)
-        self.bottleneck.apply(init_weights)
-        self.fc = nn.Linear(bottleneck_dim, num_classes)
-        if iswn == "wn":
-            self.fc = nn.utils.weight_norm(self.fc, name="weight")
-        self.fc.apply(init_weights)
-
-    def forward(self, x):
-        x = self.conv_params(x)
-        x = x.view(x.size(0), -1)
-        x = self.bottleneck(x)
-        x = self.bn(x)
-        x = self.dropout(x)
-        x = self.fc(x)
-        x = F.log_softmax(x, dim=1)
-        return x

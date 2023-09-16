@@ -119,10 +119,9 @@ def NewFedBa(w_locals, client_distributed):
     client_distributed = torch.tensor(np.array([item.numpy() for item in client_distributed]))
     # client_distributed = torch.tensor([item.numpy() for item in client_distributed])
     client_distributed = client_distributed.cpu()
-
     # 将 client_distributed 转换为 NumPy 数组
     data = client_distributed.numpy()
-
+    # print('data',data)
     # 计算样本之间的 Jensen-Shannon 距离
     dist_matrix = np.zeros((data.shape[0], data.shape[0]))
     for i in range(data.shape[0]):
@@ -134,7 +133,7 @@ def NewFedBa(w_locals, client_distributed):
 
     # 计算簇内平方和 (WCSS)
     wcss = []
-    cluster_range = range(2, min(10, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
+    cluster_range = range(2, min(4, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
     for n_clusters in cluster_range:
         labels = fcluster(Z, n_clusters, 'maxclust')
         cluster_centers = np.zeros((n_clusters, data.shape[1]))
@@ -161,7 +160,7 @@ def NewFedBa(w_locals, client_distributed):
         if labels[i] not in index_dict:
             index_dict[labels[i]] = []
         index_dict[labels[i]].append(i)
-
+    # print(index_dict)
     # 创建字典来存储每个簇的全局模型
     w_global_dict = {}
 
