@@ -124,12 +124,7 @@ def NewFedBa(w_locals, client_distributed):
     # print('data',data)
     # 计算样本之间的 Jensen-Shannon 距离
     dist_matrix = np.zeros((data.shape[0], data.shape[0]))
-    for i in range(data.shape[0]):
-        for j in range(i + 1, data.shape[0]):
-            dist = jensenshannon(data[i], data[j], base=2)
-            dist_matrix[i, j] = dist_matrix[j, i] = dist
-    # 执行层次聚类
-    Z = linkage(dist_matrix, method='ward')
+
 
     # 计算簇内平方和 (WCSS)
     wcss = []

@@ -336,6 +336,11 @@ if __name__ == '__main__':
     print('index_dict', index_dict)
     '''
 #用完软预测做完聚类，我们后面是否还可以利用一些软预测来做聚合方式的修改
+    user_local_dict = {}
+    for i in range(args.num_users):
+        user_local_dict[i] = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[i],
+                            test_idxs=test_dict_users[i])
+
     for iter in range(args.epochs):
         allclient_distributed = []
         w_locals, loss_locals = [], []
@@ -365,7 +370,7 @@ if __name__ == '__main__':
             # [0.0368, 0.0650, 0.0476, 0.1223, 0.2539, 0.0467, 0.0599, 0.0527, 0.0447,
             #  0.2704]
             args.lr = learning_rate[idx]
-            local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
+            local = user_local_dict[idx]
             w, loss, curLR,everyclient_distributed, acc = local.train(net=copy.deepcopy(client_model_list[idx]).to(args.device))
             acc_total += acc
             learning_rate[idx] = curLR
