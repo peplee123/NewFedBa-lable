@@ -130,7 +130,7 @@ def NewFedBa(w_locals, client_distributed):
     wcss = []
     cluster_range = range(2, min(10, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
     for n_clusters in cluster_range:
-        labels = fcluster(::Z, n_clusters, 'maxclust')
+        labels = fcluster(Z, n_clusters, 'maxclust')
         cluster_centers = np.zeros((n_clusters, data.shape[1]))
         for cluster_label in range(1, n_clusters + 1):
             cluster_data = data[labels == cluster_label]
