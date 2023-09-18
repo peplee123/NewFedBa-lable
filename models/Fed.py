@@ -133,7 +133,7 @@ def NewFedBa(w_locals, client_distributed):
 
     # 计算簇内平方和 (WCSS)
     wcss = []
-    cluster_range = range(2, min(4, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
+    cluster_range = range(2, min(10, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
     for n_clusters in cluster_range:
         labels = fcluster(Z, n_clusters, 'maxclust')
         cluster_centers = np.zeros((n_clusters, data.shape[1]))

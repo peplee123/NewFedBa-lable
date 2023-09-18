@@ -398,9 +398,10 @@ if __name__ == '__main__':
             acc_t, loss_t = test_img(cluster_model_list[k], DatasetSplit(dataset_train, dataset_test_idx), args)
             cluster_acc_total += acc_t
             # print("Round {:3d},cluster {} Testing accuracy: {:.2f}".format(iter, k, acc_t))
-            acc = cluster_acc_total / len(index_dict)
+        acc = cluster_acc_total / len(index_dict)
         acc_test.append(acc)
         print(f"Round {iter:3d}, cluster avg acc {acc}")
+
 
         # copy weight to net_glob
         # net_glob.load_state_dict(w_glob)

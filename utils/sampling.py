@@ -208,8 +208,8 @@ def build_noniid(dataset, num_users, alpha):
     print("DDDD1")
     train_labels = np.array([], dtype="int64")
     for d in dataset.datasets:
-        train_labels = np.append(train_labels, np.array(d.labels, dtype='int64'))
-        # train_labels = np.append(train_labels, np.array(d.targets, dtype='int64'))
+        # train_labels = np.append(train_labels, np.array(d.labels, dtype='int64'))
+        train_labels = np.append(train_labels, np.array(d.targets, dtype='int64'))
     # train_labels = np.array(dataset.targets)
     n_classes = np.max(train_labels) + 1
     label_distribution = np.random.dirichlet([alpha] * num_users, n_classes)

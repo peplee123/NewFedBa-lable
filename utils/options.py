@@ -10,7 +10,7 @@ import argparse
 def args_parser():
     parser = argparse.ArgumentParser()
     # federated arguments
-    parser.add_argument('--type', type=str, default='null', help="noniid label number of client ")
+    parser.add_argument('--type', type=str, default='dir', help="noniid label number of client ")
     parser.add_argument('--dir', type=float, default=0.1, help="noniid label number of client ")
     parser.add_argument('--bingtai', type=int, default=2, help="noniid label number of client ")
     parser.add_argument('--beizhu', type=str, default='8.31P20Mnist', help="rounds of training")
