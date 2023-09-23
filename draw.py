@@ -13,7 +13,21 @@ def read_pacfl_data(data_file):
     acc_list = re.findall(pattern, text)
     return [float(acc) for acc in acc_list]
 
+def read_fedavg_data(data_file):
+    pattern = r"Global Model Test Acc: (\d+\.\d+)"
+    with open(data_file, encoding="utf-8") as f:
+        text = f.read()
 
+    acc_list = re.findall(pattern, text)
+    return [float(acc) for acc in acc_list]
+
+# def read_fedavg_data(data_file):
+#     pattern = "Global Model Test Acc: (.*)"
+#     with open(data_file, encoding="utf-8") as f:
+#         text = f.read()
+#
+#     acc_list = re.findall(pattern, text)
+    return [float(acc) for acc in acc_list]
 def read_feduc_data(data_file):
     acc_list = []
     with open(data_file, encoding="utf-8") as f:
@@ -26,14 +40,14 @@ def plot_acc_lists(acc_dict):
     # 定义线条样式和颜色，您可以根据需要进行更改
     # 定义线条样式和颜色，您可以根据需要进行更改
     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-    step = 10
+    step = 1
     for acc_name, acc_list in acc_dict.items():
         x_values = list(range(0, len(acc_list), step))
         y_values = [acc_list[i] for i in range(0, len(acc_list), step)]
-        # plt.plot(x_values, y_values, color=colors[list(acc_dict.keys()).index(acc_name)],
-        #             label=f"{acc_name}")
-        plt.plot(x_values, y_values, "-o", color=colors[list(acc_dict.keys()).index(acc_name)],
-                 label=f"{acc_name}")
+        plt.plot(x_values, y_values, color=colors[list(acc_dict.keys()).index(acc_name)],
+                    label=f"{acc_name}")
+        # plt.plot(x_values, y_values, "-o", color=colors[list(acc_dict.keys()).index(acc_name)],
+        #          label=f"{acc_name}")
 
     plt.xlabel("communication rounds")
     plt.ylabel("Acc")
@@ -50,9 +64,12 @@ def plot_acc_lists(acc_dict):
 
 if __name__ == '__main__':
     acc_d = {
-        "Pat20": read_feduc_data("./log/cfP20.txt")[:400],
-        "Pat30": read_feduc_data("./log/cfP30.txt")[:400],
-        "Dir0.1": read_feduc_data("./log/D0.1cf.txt")[:400]
+        "fedavg": read_fedavg_data("./log/fedavg/cfP20.txt")[:400],
+        "fedprox": read_fedavg_data("./log/fedprox/cfP20.txt")[:400],
+        "our": read_feduc_data("./log/OUR/cfP20.txt")[:400],
+        "pacfl": read_pacfl_data("./log/pacfl/cfP20.txt")[:400],
+        "ifca": read_pacfl_data("./log/ifca/cfP20.txt")[:400]
+
     }
     plot_acc_lists(acc_d)
 

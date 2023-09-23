@@ -17,6 +17,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+
+import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn.datasets import make_moons
 from sklearn.preprocessing import StandardScaler
@@ -121,11 +125,50 @@ def NewFedBa(w_locals, client_distributed):
     client_distributed = client_distributed.cpu()
     # 将 client_distributed 转换为 NumPy 数组
     data = client_distributed.numpy()
+    # print(data)
+
+    # # 使用t-SNE进行降维
+    # tsne = TSNE(n_components=2,  perplexity=10,random_state=42)
+    # probs_2d = tsne.fit_transform(data)
+    #
+    # # 绘制2D图
+    # plt.figure(figsize=(10, 8))
+    # plt.scatter(probs_2d[:, 0], probs_2d[:, 1], marker='o')
+    # for i, coord in enumerate(probs_2d):
+    #     plt.annotate(str(i), (coord[0], coord[1]))
+    # plt.title('2D t-SNE of Probability Distributions')
+    # plt.xlabel('Dimension 1')
+    # plt.ylabel('Dimension 2')
+    # plt.grid(True)
+    # plt.show()
+
     # print('data',data)
     # 计算样本之间的 Jensen-Shannon 距离
     dist_matrix = np.zeros((data.shape[0], data.shape[0]))
+    for i in range(data.shape[0]):
+        for j in range(i + 1, data.shape[0]):
+            dist = jensenshannon(data[i], data[j], base=2)
+            dist_matrix[i, j] = dist_matrix[j, i] = dist
 
+    from matplotlib.colors import LinearSegmentedColormap
 
+    # 创建从深紫色到浅黄色的渐变调色板
+    # colors = ["yellow", "purple"]
+    # cmap = LinearSegmentedColormap.from_list("PurpleToYellow", colors)
+    # plt.figure(figsize=(10, 8))
+    # sns.heatmap(dist_matrix, cmap=cmap, linewidths=.5, cbar_kws={'label': 'Intensity'})
+    # plt.title('Adjacency Matrix Heatmap')
+    # plt.show()
+    # print(dist_matrix)
+    # 执行层次聚类
+    from scipy.cluster.hierarchy import dendrogram
+    Z = linkage(dist_matrix, method='ward')
+    plt.figure(figsize=(10, 7))
+    dendrogram(Z)
+    plt.title('Hierarchical Clustering Dendrogram')
+    plt.xlabel('Data point')
+    plt.ylabel('Distance')
+    plt.show()
     # 计算簇内平方和 (WCSS)
     wcss = []
     cluster_range = range(2, min(10, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
