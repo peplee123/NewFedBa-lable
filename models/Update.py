@@ -73,11 +73,12 @@ class LocalUpdate(object):
         self.last_net = None
 
     def train(self, net):
-
+        print("train")
+        # print(self.last_net)
         if self.last_net:
             n=len( list(net.parameters()))
             print('========',n)
-            copy_layers(net, self.last_net, n)
+            copy_layers(net, self.last_net, n-2)
             net = copy.deepcopy(self.last_net)
         global_w = copy.deepcopy(net)
         net.train()
@@ -128,5 +129,6 @@ class LocalUpdate(object):
         # print('accuracy', accuracyafter)
         # print(f"batch_loss: {sum(batch_loss) / len(batch_loss)}, acc: {accuracy}, test_loss: {test_loss}", )
         # return net, sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
+        # print(copy.deepcopy(net))
         self.last_net = copy.deepcopy(net)
         return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed, accuracyafter

@@ -17,16 +17,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
-
-import numpy as np
 from sklearn.cluster import DBSCAN
 from sklearn.datasets import make_moons
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from kmodes.kmodes import KModes
-
+from scipy.stats import entropy
 def FedAvg(w):
     w_avg = copy.deepcopy(w[0])
     for k in w_avg.keys():
@@ -61,6 +57,28 @@ def wasserstein_kmeans(data, n_clusters):
 
     # 返回聚类结果
     return kmeans.labels_
+
+
+
+
+
+def js_divergence(p, q, epsilon=1e-10):
+    # Ensure the distributions are normalized
+    p = p / np.sum(p)
+    q = q / np.sum(q)
+
+    # Add a small constant for numerical stability
+    p = p + epsilon
+    q = q + epsilon
+
+    # Normalize them again after adding epsilon
+    p = p / np.sum(p)
+    q = q / np.sum(q)
+
+    m = 0.5 * (p + q)
+
+    return 0.5 * (entropy(p, m, base=2) + entropy(q, m, base=2))
+
 
 
 def FedBa(w_global, w_locals):
@@ -117,7 +135,7 @@ def weight_flatten(model):
     return params
 
 
-def NewFedBa(w_locals, client_distributed):
+def NewFedBa(w_locals, client_distributed,maxcluster):
     # 将 client_distributed 转换为张量
     client_distributed = [item for item in client_distributed]
     client_distributed = torch.tensor(np.array([item.numpy() for item in client_distributed]))
@@ -125,23 +143,6 @@ def NewFedBa(w_locals, client_distributed):
     client_distributed = client_distributed.cpu()
     # 将 client_distributed 转换为 NumPy 数组
     data = client_distributed.numpy()
-    # print(data)
-
-    # # 使用t-SNE进行降维
-    # tsne = TSNE(n_components=2,  perplexity=10,random_state=42)
-    # probs_2d = tsne.fit_transform(data)
-    #
-    # # 绘制2D图
-    # plt.figure(figsize=(10, 8))
-    # plt.scatter(probs_2d[:, 0], probs_2d[:, 1], marker='o')
-    # for i, coord in enumerate(probs_2d):
-    #     plt.annotate(str(i), (coord[0], coord[1]))
-    # plt.title('2D t-SNE of Probability Distributions')
-    # plt.xlabel('Dimension 1')
-    # plt.ylabel('Dimension 2')
-    # plt.grid(True)
-    # plt.show()
-
     # print('data',data)
     # 计算样本之间的 Jensen-Shannon 距离
     dist_matrix = np.zeros((data.shape[0], data.shape[0]))
@@ -149,29 +150,14 @@ def NewFedBa(w_locals, client_distributed):
         for j in range(i + 1, data.shape[0]):
             dist = jensenshannon(data[i], data[j], base=2)
             dist_matrix[i, j] = dist_matrix[j, i] = dist
-
-    from matplotlib.colors import LinearSegmentedColormap
-
-    # 创建从深紫色到浅黄色的渐变调色板
-    # colors = ["yellow", "purple"]
-    # cmap = LinearSegmentedColormap.from_list("PurpleToYellow", colors)
-    # plt.figure(figsize=(10, 8))
-    # sns.heatmap(dist_matrix, cmap=cmap, linewidths=.5, cbar_kws={'label': 'Intensity'})
-    # plt.title('Adjacency Matrix Heatmap')
-    # plt.show()
-    # print(dist_matrix)
     # 执行层次聚类
-    from scipy.cluster.hierarchy import dendrogram
-    Z = linkage(dist_matrix, method='ward')
-    plt.figure(figsize=(10, 7))
-    dendrogram(Z)
-    plt.title('Hierarchical Clustering Dendrogram')
-    plt.xlabel('Data point')
-    plt.ylabel('Distance')
-    plt.show()
+    # Z = linkage(dist_matrix, method='ward')
+    Z = linkage(dist_matrix, method='average')
+
     # 计算簇内平方和 (WCSS)
     wcss = []
-    cluster_range = range(2, min(10, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
+    cluster_range = range(2, min(maxcluster, data.shape[0] + 1))  # Limit the range to a maximum of 10 clusters
+    print('maxcluster',maxcluster)
     for n_clusters in cluster_range:
         labels = fcluster(Z, n_clusters, 'maxclust')
         cluster_centers = np.zeros((n_clusters, data.shape[1]))
@@ -182,7 +168,8 @@ def NewFedBa(w_locals, client_distributed):
         for i in range(data.shape[0]):
             cluster_label = labels[i]
             cluster_center = cluster_centers[cluster_label - 1]
-            cluster_distances[i] = np.sum((data[i] - cluster_center) ** 2)
+            # cluster_distances[i] = np.sum((data[i] - cluster_center) ** 2)
+            cluster_distances[i] = js_divergence(data[i], cluster_center)
         wcss.append(np.sum(cluster_distances))
 
     # 使用拐点法计算最优簇数

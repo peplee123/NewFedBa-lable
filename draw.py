@@ -14,7 +14,7 @@ def read_pacfl_data(data_file):
     return [float(acc) for acc in acc_list]
 
 def read_fedavg_data(data_file):
-    pattern = r"Global Model Test Acc: (\d+\.\d+)"
+    pattern = "Global Model Test Acc: (\d+\.\d+)"
     with open(data_file, encoding="utf-8") as f:
         text = f.read()
 
@@ -27,13 +27,14 @@ def read_fedavg_data(data_file):
 #         text = f.read()
 #
 #     acc_list = re.findall(pattern, text)
-    return [float(acc) for acc in acc_list]
+#   return [float(acc) for acc in acc_list]
 def read_feduc_data(data_file):
     acc_list = []
     with open(data_file, encoding="utf-8") as f:
         for c in f.readlines():
             acc_list.append(float(c.strip().strip("tensor(").strip(")")))
     return acc_list
+
 
 
 def plot_acc_lists(acc_dict):
@@ -53,7 +54,8 @@ def plot_acc_lists(acc_dict):
     plt.ylabel("Acc")
     plt.legend()
     plt.grid(True)
-    plt.title('Robust analysis-Fmnist')
+    plt.title('Cluster number analysis Cifar10,N-iid,Dir(0.1)')
+    # plt.title('Robust analysis-Fmnist')
 
     # # 设定纵坐标刻度
     # max_acc = max(max(l) for l in acc_lists)
@@ -64,15 +66,48 @@ def plot_acc_lists(acc_dict):
 
 if __name__ == '__main__':
     acc_d = {
-        "fedavg": read_fedavg_data("./log/fedavg/cfP20.txt")[:400],
-        "fedprox": read_fedavg_data("./log/fedprox/cfP20.txt")[:400],
-        "our": read_feduc_data("./log/OUR/cfP20.txt")[:400],
-        "pacfl": read_pacfl_data("./log/pacfl/cfP20.txt")[:400],
-        "ifca": read_pacfl_data("./log/ifca/cfP20.txt")[:400]
+        "ward": read_feduc_data("log/wardcluster10cfP30.txt")[:400],
+        "avg": read_feduc_data("log/cluster10cfP30.txt")[:400],
 
+        # "cluster4": read_feduc_data("log/cluster/cfD0.1cluster4.txt")[:400],
+        # "cluster7": read_feduc_data("log/cluster/cfD0.1cluster7.txt")[:400],
+        # "cluster10": read_feduc_data("log/cluster/cfD0.1cluster10.txt")[:400],
+
+        # "Our": read_feduc_data("./log/OUR/svhnP20.txt")[:400],
+        # "PACFL": read_pacfl_data("./log/pacfl/svhnP20.txt")[:400],
+        # "IFCA": read_pacfl_data("./log/ifca/svhnP20.txt")[:400],
+        # "Per-FedAvg": read_pacfl_data("./log/pfedavg/svhnP20.txt")[:400],
+        # "FedAvg": read_fedavg_data("./log/fedavg/svhnP20.txt")[:400],
+        # "FedProx": read_fedavg_data("./log/fedprox/svhnP20.txt")[:400]
     }
     plot_acc_lists(acc_d)
+    # 打开文件并读取数据
+    with open('log/wardcluster10cfP30.txt', 'r') as f:
+        lines = f.readlines()
 
+    # 转换字符串数据为浮点数
+    values = [float(line.replace("tensor(", "").replace(")", "").strip()) for line in lines]
+
+    # 对数据进行排序
+    sorted_values = sorted(values, reverse=True)
+
+    # 获取最大的前5个数
+    top_5 = sorted_values[:5]
+
+    print("最大的前5个数:", top_5)
+    with open('log/cluster10cfP30.txt', 'r') as f:
+        lines = f.readlines()
+
+    # 转换字符串数据为浮点数
+    values = [float(line.replace("tensor(", "").replace(")", "").strip()) for line in lines]
+
+    # 对数据进行排序
+    sorted_values = sorted(values, reverse=True)
+
+    # 获取最大的前5个数
+    top_5 = sorted_values[:5]
+
+    print("最大的前5个数:", top_5)
 # def plot_acc_lists(acc_dict):
 #     # 定义线条样式和颜色
 #     colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]

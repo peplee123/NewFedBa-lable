@@ -40,8 +40,8 @@ if __name__ == '__main__':
         trans_svhn = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
         # 下载和加载训练集和测试集
-        dataset_train = datasets.SVHN(root='./data/svhn/', split='train', download=True, transform=trans_svhn)
-        dataset_test = datasets.SVHN(root='./data/svhn/', split='test', download=True, transform=trans_svhn)
+        dataset_train = datasets.SVHN(root='/data/dataset/svhn/', split='train', download=True, transform=trans_svhn)
+        dataset_test = datasets.SVHN(root='/data/dataset/svhn/', split='test', download=True, transform=trans_svhn)
 
         if args.iid:
             dict_users = svhn_iid(dataset_train, args.num_users)  # 注意：你需要定义一个svhn_iid函数或者复用mnist_iid
@@ -62,10 +62,10 @@ if __name__ == '__main__':
         # 基本的英文tokenizer
         max_len = 200
         tokenizer = get_tokenizer('basic_english')
-
+        print('jin')
         # 加载AG News数据集
-        trainset, testset = AG_NEWS(root="./data/agnews")
-
+        trainset, testset = AG_NEWS(root="/data/dataset/agnews")
+        print('ru')
         trainlabel, traintext = list(zip(*trainset))
         testlabel, testtext = list(zip(*testset))
 
@@ -125,8 +125,8 @@ if __name__ == '__main__':
 
     elif args.dataset == 'mnist':
         trans_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
-        dataset_train = datasets.MNIST('./data/mnist/', train=True, download=True, transform=trans_mnist)
-        dataset_test = datasets.MNIST('./data/mnist/', train=False, download=True, transform=trans_mnist)
+        dataset_train = datasets.MNIST('/data/dataset/mnist', train=True, download=True, transform=trans_mnist)
+        dataset_test = datasets.MNIST('/data/dataset/mnist', train=False, download=True, transform=trans_mnist)
 
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
@@ -153,8 +153,8 @@ if __name__ == '__main__':
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ])
-        dataset_train = datasets.CIFAR10('./data/cifar', train=True, download=True, transform=trans_cifar_train)
-        dataset_test = datasets.CIFAR10('./data/cifar', train=False, download=True, transform=trans_cifar_test)
+        dataset_train = datasets.CIFAR10('/data/dataset/cifar10', train=True, download=True, transform=trans_cifar_train)
+        dataset_test = datasets.CIFAR10('/data/dataset/cifar10', train=False, download=True, transform=trans_cifar_test)
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
@@ -179,8 +179,8 @@ if __name__ == '__main__':
             transforms.ToTensor(),
             transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
         ])
-        dataset_train = datasets.CIFAR100('./data/cifar', train=True, download=True, transform=trans_cifar_train)
-        dataset_test = datasets.CIFAR100('./data/cifar', train=False, download=True, transform=trans_cifar_test)
+        dataset_train = datasets.CIFAR100('/data/dataset/cifar100', train=True, download=True, transform=trans_cifar_train)
+        dataset_test = datasets.CIFAR100('/data/dataset/cifar100', train=False, download=True, transform=trans_cifar_test)
         if args.iid:
             dict_users = cifar_iid(dataset_train, args.num_users)
         else:
@@ -195,9 +195,9 @@ if __name__ == '__main__':
                 print("type is none")
     elif args.dataset == 'fashion-mnist':
         trans_fashion_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
-        dataset_train = datasets.FashionMNIST('./data/fashion-mnist', train=True, download=True,
+        dataset_train = datasets.FashionMNIST('/data/dataset/fashion-mnist', train=True, download=True,
                                               transform=trans_fashion_mnist)
-        dataset_test = datasets.FashionMNIST('./data/fashion-mnist', train=False, download=True,
+        dataset_test = datasets.FashionMNIST('/data/dataset/fashion-mnist', train=False, download=True,
                                               transform=trans_fashion_mnist)
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
@@ -233,8 +233,8 @@ if __name__ == '__main__':
         transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-        trainset = ImageFolder_custom(root='./data/tiny-imagenet-200/train/', transform=transform)
-        testset = ImageFolder_custom(root='./data/tiny-imagenet-200/val/', transform=transform)
+        trainset = ImageFolder_custom(root='/data/dataset/tiny-imagenet-200/train/', transform=transform)
+        testset = ImageFolder_custom(root='/data/dataset/tiny-imagenet-200/val/', transform=transform)
         trainloader = torch.utils.data.DataLoader(
             trainset, batch_size=len(trainset), shuffle=False)
         testloader = torch.utils.data.DataLoader(
@@ -336,10 +336,12 @@ if __name__ == '__main__':
     print('index_dict', index_dict)
     '''
 #用完软预测做完聚类，我们后面是否还可以利用一些软预测来做聚合方式的修改
+
     user_local_dict = {}
     for i in range(args.num_users):
         user_local_dict[i] = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[i],
-                            test_idxs=test_dict_users[i])
+                                         test_idxs=test_dict_users[i])
+
 
     for iter in range(args.epochs):
         allclient_distributed = []
@@ -371,6 +373,7 @@ if __name__ == '__main__':
             #  0.2704]
             args.lr = learning_rate[idx]
             local = user_local_dict[idx]
+            # local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
             w, loss, curLR,everyclient_distributed, acc = local.train(net=copy.deepcopy(client_model_list[idx]).to(args.device))
             acc_total += acc
             learning_rate[idx] = curLR
@@ -383,7 +386,7 @@ if __name__ == '__main__':
         # new_allclient_distributed = list(map(lambda x: list(map(float, x[0])), allclient_distributed))
         tensor_list = [item[0] for item in allclient_distributed]
         # print("传入聚类的数据",tensor_list)
-        w_global_dict, index_dict = NewFedBa(w_locals, tensor_list)
+        w_global_dict, index_dict = NewFedBa(w_locals, tensor_list, args.maxcluster)
         # 这里返回的index_dict 代表的id是tensor_list内的索引，而真实的客户端id是idxs_users
         # 也就是说如果要取到真实的客户端id，需要取cid=idxs_users[id]
         # print("通过软标签聚类的全局模型聚合完毕")

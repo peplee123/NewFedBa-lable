@@ -7,13 +7,13 @@ import numpy as np
 from torchvision import datasets, transforms
 from sklearn.model_selection import train_test_split
 
-
 batch_size = 10
-train_size = .8 # merge original training set and test set, then split it manually.
-least_samples = batch_size / (1-train_size) # least samples for each client
+train_size = .8  # merge original training set and test set, then split it manually.
+least_samples = batch_size / (1 - train_size)  # least samples for each client
 
 
-def separate_data(data, num_clients, num_classes, niid=False, balance=False, partition=None, class_per_client=3, alpha=0.1):
+def separate_data(data, num_clients, num_classes, niid=False, balance=False, partition=None, class_per_client=3,
+                  alpha=0.1):
     X = {i: [] for i in range(num_clients)}
     y = {i: [] for i in range(num_clients)}
     statistic = [[] for _ in range(num_clients)]
@@ -103,8 +103,7 @@ def separate_data(data, num_clients, num_classes, niid=False, balance=False, par
     return X, y, statistic
 
 
-
-def noniid(args,dataset, num_users):
+def noniid(args, dataset, num_users):
     """
     Sample non-I.I.D client data from MNIST dataset
     :param dataset:
@@ -112,7 +111,7 @@ def noniid(args,dataset, num_users):
     :return:
     """
 
-    n_class =args.bingtai
+    n_class = args.bingtai
     num_shards, num_imgs = num_users * n_class, int(len(dataset) / (num_users * n_class))
     idx_shard = [i for i in range(num_shards)]
     train_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
@@ -120,7 +119,13 @@ def noniid(args,dataset, num_users):
     idxs = np.arange(len(dataset))
     labels = np.array([], dtype="int64")
     for d in dataset.datasets:
-        labels = np.append(labels, np.array(d.targets, dtype='int64'))
+        if hasattr(d, 'labels'):
+            labels = np.append(labels, np.array(d.labels, dtype='int64'))
+        elif hasattr(d, 'targets'):
+            labels = np.append(labels, np.array(d.targets, dtype='int64'))
+        else:
+            raise ValueError("Unsupported dataset format!")
+        # labels = np.append(labels, np.array(d.targets, dtype='int64'))
         # labels = np.append(labels, np.array(d.labels, dtype='int64'))
     # labels = dataset.train_labels.numpy()
     # sort labels
@@ -140,8 +145,7 @@ def noniid(args,dataset, num_users):
     return train_dict_users, test_dict_users
 
 
-
-def bingtai_mnist(dataset,num_clients, num_classes_per_client, num_samples_per_class):
+def bingtai_mnist(dataset, num_clients, num_classes_per_client, num_samples_per_class):
     # 加载MNIST数据集
     # train_dataset = torchvision.datasets.MNIST(root='./data', train=True, download=True)
     # 创建一个包含所有数据索引的列表
@@ -187,7 +191,6 @@ def build_noniid_agnews(dataset, num_users, alpha):
         # np.split按照比例将类别为k的样本划分为了N个子集
         # for i, idxs 为遍历第i个client对应样本集合的索引
         for i, idxs in enumerate(np.split(c, (np.cumsum(fracs)[:-1] * len(c)).astype(int))):
-
             client_idxs[i] += [idxs]
 
     client_idxs = [np.concatenate(idxs) for idxs in client_idxs]
@@ -204,12 +207,68 @@ def build_noniid_agnews(dataset, num_users, alpha):
     return train_dict_users, test_dict_users
 
 
+# --------------------
+
+def redistribute_data(client_idxs, threshold=3):
+    deficient_clients = [i for i, data in enumerate(client_idxs) if len(data) < threshold]
+    excess_clients = [i for i, data in enumerate(client_idxs) if len(data) > threshold]
+
+    while deficient_clients and excess_clients:
+        deficient = deficient_clients[0]
+        donor = excess_clients[0]
+
+        num_needed = threshold - len(client_idxs[deficient])
+        num_to_transfer = min(num_needed, len(client_idxs[donor]) - threshold)
+
+        # Transfer data from donor to deficient
+        data_to_transfer = client_idxs[donor][:num_to_transfer]
+        client_idxs[deficient] = np.concatenate([client_idxs[deficient], data_to_transfer])
+        client_idxs[donor] = client_idxs[donor][num_to_transfer:]
+
+        # Update the lists of deficient and excess clients
+        if len(client_idxs[donor]) <= threshold:
+            excess_clients.pop(0)
+        if len(client_idxs[deficient]) >= threshold:
+            deficient_clients.pop(0)
+
+    return client_idxs
+
+
+# def redistribute_data(client_idxs, threshold=2):
+#     # 寻找数据不足的客户端
+#     deficient_clients = [i for i, data in enumerate(client_idxs) if 0 < len(data) < threshold]
+#     excess_clients = [i for i, data in enumerate(client_idxs) if len(data) > threshold]
+#
+#     for deficient in deficient_clients:
+#         while len(client_idxs[deficient]) < threshold and excess_clients:
+#             donor = excess_clients[0]
+#             num_needed = threshold - len(client_idxs[deficient])
+#             num_to_transfer = min(num_needed, len(client_idxs[donor]) - threshold)
+#
+#             # 从donor移动数据到deficient
+#             data_to_transfer = client_idxs[donor][:num_to_transfer]
+#             client_idxs[deficient] = np.concatenate([client_idxs[deficient], data_to_transfer])
+#             client_idxs[donor] = client_idxs[donor][num_to_transfer:]
+#
+#             # 如果donor数据减少到threshold，将其从excess_clients中移除
+#             if len(client_idxs[donor]) <= threshold:
+#                 excess_clients.pop(0)
+#
+#     return client_idxs
+# ------------
+
 def build_noniid(dataset, num_users, alpha):
     print("DDDD1")
     train_labels = np.array([], dtype="int64")
     for d in dataset.datasets:
+        if hasattr(d, 'labels'):
+            train_labels = np.append(train_labels, np.array(d.labels, dtype='int64'))
+        elif hasattr(d, 'targets'):
+            train_labels = np.append(train_labels, np.array(d.targets, dtype='int64'))
+        else:
+            raise ValueError("Unsupported dataset format!")
         # train_labels = np.append(train_labels, np.array(d.labels, dtype='int64'))
-        train_labels = np.append(train_labels, np.array(d.targets, dtype='int64'))
+        # train_labels = np.append(train_labels, np.array(d.targets, dtype='int64'))
     # train_labels = np.array(dataset.targets)
     n_classes = np.max(train_labels) + 1
     label_distribution = np.random.dirichlet([alpha] * num_users, n_classes)
@@ -228,7 +287,19 @@ def build_noniid(dataset, num_users, alpha):
             client_idxs[i] += [idxs]
 
     client_idxs = [np.concatenate(idxs) for idxs in client_idxs]
-    #
+
+    # ---------------------------
+    # 在train_test_split前调用此函数，进行数据再分配
+    client_idxs = redistribute_data(client_idxs, threshold=2)
+
+    # 检查所有客户端数据
+    for idxs in client_idxs:
+        if len(idxs) < 2:
+            print("一个客户端的数据量小于2，需要进一步处理!")
+
+    # 之后是train_test_split的代码...
+    # -----------------------
+
     train_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
     test_dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
 
@@ -256,7 +327,6 @@ def draw_data_distribution(dict_users, dataset, num_class):
 
 
 if __name__ == '__main__':
-
     trans_fashion_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
 
     dataset_train = datasets.FashionMNIST('../data/fashion-mnist', train=True, download=True,
