@@ -63,7 +63,7 @@ def plot_acc_lists(acc_dict):
     import os
     current_directory = os.getcwd()
     # 构建要保存到的文件路径
-    save_path = os.path.join(current_directory, "pdf11.9", "CIFAR-10;juleibijiao.pdf")
+    save_path = os.path.join(current_directory, "../NewFedBa-label - 副本/pdf11.9", "CIFAR-10;juleibijiao.pdf")
     # plt.title("SVHN(Non-IID label skew(20%))")
 
     # plt.title("SVHN(Non-IID label skew(20%))")
