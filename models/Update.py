@@ -78,7 +78,7 @@ class LocalUpdate(object):
         if self.last_net:
             n=len( list(net.parameters()))
             print('========',n)
-            copy_layers(net, self.last_net, n-2)
+            copy_layers(net, self.last_net, n-self.args.layers)
             net = copy.deepcopy(self.last_net)
         global_w = copy.deepcopy(net)
         net.train()
@@ -109,8 +109,7 @@ class LocalUpdate(object):
                 #     proximal_term += ((1 / 2) * torch.norm((w - w_t)) ** 2)
                 # loss = self.loss_func(log_probs, labels) + proximal_term
                 proximal_term = bhattacharyya_distance(local_probs,global_probs)
-                loss = self.loss_func(log_probs, labels)+0.005*proximal_term
-
+                loss = self.loss_func(log_probs, labels)+self.args.hy*proximal_term
                 loss.backward()
                 optimizer.step()
                 scheduler.step()
@@ -123,12 +122,12 @@ class LocalUpdate(object):
         sum_ = sum(total_local_probs)
         total_local_probs = torch.tensor([p/sum_ for p in total_local_probs])
         everyclient_distributed.append(total_local_probs)
-        accuracyafter, test_loss = test_img(net, self.ldr_test.dataset, self.args)
-        # accuracybefor, test_loss1 = test_img(global_w, self.ldr_test.dataset, self.args)
+        # accuracyafter, test_loss = test_img(net, self.ldr_test.dataset, self.args)
+        accuracybefor, test_loss1 = test_img(global_w, self.ldr_test.dataset, self.args)
         # print('accuracy',accuracybefor)
         # print('accuracy', accuracyafter)
         # print(f"batch_loss: {sum(batch_loss) / len(batch_loss)}, acc: {accuracy}, test_loss: {test_loss}", )
         # return net, sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed
         # print(copy.deepcopy(net))
         self.last_net = copy.deepcopy(net)
-        return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed, accuracyafter
+        return net.state_dict(), sum(epoch_loss) / len(epoch_loss), scheduler.get_last_lr()[0],everyclient_distributed, accuracybefor

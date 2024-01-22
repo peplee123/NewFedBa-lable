@@ -40,8 +40,8 @@ if __name__ == '__main__':
         trans_svhn = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
         # 下载和加载训练集和测试集
-        dataset_train = datasets.SVHN(root='/data/dataset/svhn/', split='train', download=True, transform=trans_svhn)
-        dataset_test = datasets.SVHN(root='/data/dataset/svhn/', split='test', download=True, transform=trans_svhn)
+        dataset_train = datasets.SVHN(root='./data/dataset/svhn/', split='train', download=True, transform=trans_svhn)
+        dataset_test = datasets.SVHN(root='./data/dataset/svhn/', split='test', download=True, transform=trans_svhn)
 
         if args.iid:
             dict_users = svhn_iid(dataset_train, args.num_users)  # 注意：你需要定义一个svhn_iid函数或者复用mnist_iid
@@ -195,9 +195,9 @@ if __name__ == '__main__':
                 print("type is none")
     elif args.dataset == 'fashion-mnist':
         trans_fashion_mnist = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5,), (0.5,))])
-        dataset_train = datasets.FashionMNIST('/data/dataset/fashion-mnist', train=True, download=True,
+        dataset_train = datasets.FashionMNIST('./data/fashion-mnist', train=True, download=True,
                                               transform=trans_fashion_mnist)
-        dataset_test = datasets.FashionMNIST('/data/dataset/fashion-mnist', train=False, download=True,
+        dataset_test = datasets.FashionMNIST('./data/fashion-mnist', train=False, download=True,
                                               transform=trans_fashion_mnist)
         if args.iid:
             dict_users = mnist_iid(dataset_train, args.num_users)
@@ -418,7 +418,7 @@ if __name__ == '__main__':
         print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
         loss_train.append(loss_avg)
 
-        rootpath = './log'
+        rootpath = './logbefor'
         if not os.path.exists(rootpath):
             os.makedirs(rootpath)
         accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}.dat'.

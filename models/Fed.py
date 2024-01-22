@@ -33,6 +33,30 @@ def FedAvg(w):
 
 
 def wasserstein_distance(p, q):
+    # 确保p和q的长度相同
+    assert len(p) == len(q), "The distributions p and q must have the same length."
+
+    # 计算累积分布函数 (CDF)
+    cdf_p = np.cumsum(p)
+    cdf_q = np.cumsum(q)
+
+    # 计算Wasserstein距离
+    distance = np.sum(np.abs(cdf_p - cdf_q))
+
+    return distance
+def kl_divergence(p, q):
+    p = np.clip(p, 1e-10, 1)
+    q = np.clip(q, 1e-10, 1)
+    return np.sum(p * np.log(p / q))
+def euclidean_distance(p, q):
+    return np.sqrt(np.sum((p - q) ** 2))
+def cosine_similarity(p, q):
+    dot_product = np.dot(p, q)
+    norm_p = np.linalg.norm(p)
+    norm_q = np.linalg.norm(q)
+    return dot_product / (norm_p * norm_q)
+
+def wasserstein_distance(p, q):
     p = torch.FloatTensor(p)
     q = torch.FloatTensor(q)
     cdf_p = torch.cumsum(p, dim=0)
@@ -148,7 +172,11 @@ def NewFedBa(w_locals, client_distributed,maxcluster):
     dist_matrix = np.zeros((data.shape[0], data.shape[0]))
     for i in range(data.shape[0]):
         for j in range(i + 1, data.shape[0]):
+            dist = wasserstein_distance(data[i], data[j])
+            # dist = kl_divergence(data[i], data[j])
+            # dist = cosine_similarity(data[i], data[j])
             dist = jensenshannon(data[i], data[j], base=2)
+            # dist = euclidean_distance(data[i], data[j])
             dist_matrix[i, j] = dist_matrix[j, i] = dist
     # 执行层次聚类
     # Z = linkage(dist_matrix, method='ward')
@@ -169,6 +197,9 @@ def NewFedBa(w_locals, client_distributed,maxcluster):
             cluster_label = labels[i]
             cluster_center = cluster_centers[cluster_label - 1]
             # cluster_distances[i] = np.sum((data[i] - cluster_center) ** 2)
+            # cluster_distances[i] = wasserstein_distance(data[i], cluster_center)
+            # cluster_distances[i] = kl_divergence(data[i], cluster_center)
+            # cluster_distances[i] = cosine_similarity(data[i], cluster_center)
             cluster_distances[i] = js_divergence(data[i], cluster_center)
         wcss.append(np.sum(cluster_distances))
 

@@ -1,5 +1,5 @@
 .idea
-data
+../NewFedBa-labelwork/data
 log
 *.pth
 *.pyc
