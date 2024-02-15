@@ -119,7 +119,7 @@ def bingtai_mnist(dataset,num_clients, num_classes_per_client, num_samples_per_c
             indices = [index for index in all_indices if dataset.targets[index] == class_label]
             selected_indices.extend(random.sample(indices, num_samples_per_class))
         dict_users[i] = selected_indices
-    draw_data_distribution(dict_users, dataset, 10)
+    # draw_data_distribution(dict_users, dataset, 10)
     return dict_users
 
 
@@ -250,8 +250,8 @@ if __name__ == '__main__':
                                           transform=trans_fashion_mnist)
 
     train_dict_users, test_dict_users = noniid(dataset_train, 10)
-    draw_data_distribution(train_dict_users, dataset_train, 10)
-    draw_data_distribution(test_dict_users, dataset_train, 10)
+    # draw_data_distribution(train_dict_users, dataset_train, 10)
+    # draw_data_distribution(test_dict_users, dataset_train, 10)
 
 
 
@@ -396,7 +396,7 @@ def noniid(args,dataset, num_users):
             data = np.concatenate((train_dict_users[i], idxs[rand * num_imgs:(rand + 1) * num_imgs]), axis=0)
             train_dict_users[i], test_dict_users[i] = train_test_split(data, train_size=0.8, shuffle=True)
             # train_dict_users[i], test_dict_users[i] = data[:int(0.8*len(data))], data[int(0.8*len(data)):]
-    draw_data_distribution(train_dict_users, dataset, 10)
+    # draw_data_distribution(train_dict_users, dataset, 10)
     return train_dict_users, test_dict_users
 
 
@@ -419,7 +419,7 @@ def bingtai_mnist(dataset,num_clients, num_classes_per_client, num_samples_per_c
             indices = [index for index in all_indices if dataset.targets[index] == class_label]
             selected_indices.extend(random.sample(indices, num_samples_per_class))
         dict_users[i] = selected_indices
-    draw_data_distribution(dict_users, dataset, 10)
+    # draw_data_distribution(dict_users, dataset, 10)
     return dict_users
 
 
@@ -564,7 +564,7 @@ def build_noniid(dataset, num_users, alpha):
         data = client_idxs[i]
         train_dict_users[i], test_dict_users[i] = train_test_split(data, train_size=0.8, shuffle=True)
 
-    draw_data_distribution(train_dict_users, dataset, n_classes)
+    # draw_data_distribution(train_dict_users, dataset, n_classes)
     # draw_data_distribution(test_dict_users, dataset, n_classes)
     return train_dict_users, test_dict_users
 
@@ -578,8 +578,8 @@ if __name__ == '__main__':
                                           transform=trans_fashion_mnist)
 
     train_dict_users, test_dict_users = noniid(dataset_train, 10)
-    draw_data_distribution(train_dict_users, dataset_train, 10)
-    draw_data_distribution(test_dict_users, dataset_train, 10)
+    # draw_data_distribution(train_dict_users, dataset_train, 10)
+    # draw_data_distribution(test_dict_users, dataset_train, 10)
     # num = 100
     # d = mnist_iid(dataset_train, num)
     # path = '../data/fashion_iid_100clients.dat'

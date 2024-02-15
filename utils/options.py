@@ -18,11 +18,11 @@ def args_parser():
     parser.add_argument('--type', type=str, default='pon', help="noniid label number of client ")
     parser.add_argument('--dir', type=float, default=0.1, help="noniid label number of client ")
     parser.add_argument('--bingtai', type=int, default=2, help="noniid label number of client ")
-    parser.add_argument('--beizhu', type=str, default='8.31P20Mnist', help="rounds of training")
-    parser.add_argument('--epochs', type=int, default=1 ,help="rounds of training")
+    parser.add_argument('--beizhu', type=str, default='DPone', help="rounds of training")
+    parser.add_argument('--epochs', type=int, default=500 ,help="rounds of training")
     parser.add_argument('--num_users', type=int, default=100, help="number of users: K")
     parser.add_argument('--frac', type=float, default=0.2, help="the fraction of clients: C")
-    parser.add_argument('--local_ep', type=int, default=5, help="the number of local epochs: E")
+    # parser.add_argument('--local_ep', type=int, default=5, help="the number of local epochs: E")
     parser.add_argument('--local_bs', type=int, default=128, help="local batch size: B")
     parser.add_argument('--bs', type=int, default=128, help="test batch size")
     parser.add_argument('--lr', type=float, default=0.01, help="learning rate")
@@ -52,7 +52,7 @@ def args_parser():
 
     parser.add_argument('--dp_mechanism', type=str, default='Gaussian',
                         help='differential privacy mechanism')
-    parser.add_argument('--dp_epsilon', type=float, default=10,
+    parser.add_argument('--dp_epsilon', type=float, default=20,
                         help='differential privacy epsilon')
     parser.add_argument('--dp_delta', type=float, default=1e-5,
                         help='differential privacy delta')
@@ -61,7 +61,7 @@ def args_parser():
     parser.add_argument('--dp_sample', type=float, default=1, help='sample rate for moment account')
 
     # parser.add_argument('--serial', action='store_true', help='partial serial running to save the gpu memory')
-    parser.add_argument('--serial', type=str, default="ghjg", help='partial serial running to save the gpu memory')
+    parser.add_argument('--serial', type=str, default="jj", help='partial serial running to save the gpu memory')
     parser.add_argument('--serial_bs', type=int, default=128, help='partial serial running batch size')
 
     args = parser.parse_args()
