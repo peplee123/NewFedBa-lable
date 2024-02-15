@@ -382,11 +382,11 @@ if __name__ == '__main__':
         rootpath = './DPlog'
         if not os.path.exists(rootpath):
             os.makedirs(rootpath)
-        accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}.dat'.
+        accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
                        format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.sigam), "w")
-        accfile1 = open(rootpath + '/loss_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}.dat'.
+        accfile1 = open(rootpath + '/loss_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
                        format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.sigam), "w")
-        accfile2 = open(rootpath + '/acc_client_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}.dat'.
+        accfile2 = open(rootpath + '/acc_client_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
                         format(args.dataset, args.model, args.epochs, args.iid, args.lr, args.local_bs,args.beizhu,args.dp_mechanism,args.sigam), "w")
         for ac in acc_test:
             sac = str(ac)

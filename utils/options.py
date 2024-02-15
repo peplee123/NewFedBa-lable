@@ -19,7 +19,7 @@ def args_parser():
     parser.add_argument('--dir', type=float, default=0.1, help="noniid label number of client ")
     parser.add_argument('--bingtai', type=int, default=2, help="noniid label number of client ")
     parser.add_argument('--beizhu', type=str, default='DPone', help="rounds of training")
-    parser.add_argument('--epochs', type=int, default=400 ,help="rounds of training")
+    parser.add_argument('--epochs', type=int, default=1 ,help="rounds of training")
     parser.add_argument('--num_users', type=int, default=100, help="number of users: K")
     parser.add_argument('--frac', type=float, default=0.2, help="the fraction of clients: C")
     parser.add_argument('--local_ep', type=int, default=5, help="the number of local epochs: E")
