@@ -13,7 +13,7 @@ import random
 from utils.sampling import noniid, build_noniid,build_noniid_agnews, separate_data
 from utils.options import args_parser
 from utils.dataset import CustomAGNewsDataset
-from models.Update import LocalUpdate, DatasetSplit
+from models.Update import DatasetSplit, LocalUpdateDPSerial, LocalUpdateDP
 from models.Nets import LeNet5Cifar,LeNet5Fmnist,resnet18,MLP, CNNMnist, CNNCifar, CNNFemnist, fastText, CNNTinyImage, CNNCifar100,ResNet9
 from models.Fed import FedAvg,FedBa, NewFedBa
 from models.test import test_img
@@ -26,6 +26,7 @@ from torchtext.data.functional import to_map_style_dataset
 from torchtext.vocab import build_vocab_from_iterator
 from torchvision import transforms, datasets
 from torch.utils.data import ConcatDataset
+from opacus.grad_sample import GradSampleModule
 
 if __name__ == '__main__':
     # parse args
@@ -292,7 +293,11 @@ if __name__ == '__main__':
         net_glob = LeNet5Cifar(num_classes=10).to(args.device)
     else:
         exit('Error: unrecognized model')
+    # use opacus to wrap model to clip per sample gradient
+    if args.dp_mechanism != 'no_dp':
+        net_glob = GradSampleModule(net_glob)
     print(net_glob)
+    net_glob.train()
 
     # w_glob = net_glob.state_dict()
     w_glob = copy.deepcopy(net_glob)
@@ -310,37 +315,15 @@ if __name__ == '__main__':
     acc_client = []
     loss_train = []
     learning_rate = [args.lr for i in range(args.num_users)]
-    '''
-     # 这里是仿照那个中文论文的框架写的预训练的代码
-    local_model_list = [copy.deepcopy(net_glob) for _ in range(args.num_users)]
-
-    allclient_distributed = []
-    for idx in train_dict_users:
-        print(f"start client {idx}")
-        local_args = copy.deepcopy(args)
-        local_args.local_ep = 3
-        local = LocalUpdate(args=local_args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
-        w, loss, curLR, everyclient_distributed = local.train(net=copy.deepcopy(local_model_list[idx]).to(args.device))
-        local_model_list[idx] = copy.deepcopy(net_glob.load_state_dict(w))
-        allclient_distributed.append(everyclient_distributed)
-
-    allclient_distributed = np.array([np.array(tensor.tolist()) for sublist in allclient_distributed for tensor in sublist])
-    print(allclient_distributed)
-    cluster_labels = cluster_dbscan(allclient_distributed)
-    print(cluster_labels)
-    index_dict = {}
-    for i in range(len(cluster_labels)):
-        if cluster_labels[i] not in index_dict:
-            index_dict[cluster_labels[i]] = []
-        index_dict[cluster_labels[i]].append(i)
-    print('index_dict', index_dict)
-    '''
-#用完软预测做完聚类，我们后面是否还可以利用一些软预测来做聚合方式的修改
 
     user_local_dict = {}
+
     for i in range(args.num_users):
-        user_local_dict[i] = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[i],
-                                         test_idxs=test_dict_users[i])
+        if args.serial:
+            print("DPS")
+            user_local_dict[i] = LocalUpdateDPSerial(args=args, dataset=dataset_train, idxs=train_dict_users[i], test_idxs=test_dict_users[i])
+        else:
+            user_local_dict[i] = LocalUpdateDP(args=args, dataset=dataset_train, idxs=train_dict_users[i], test_idxs=test_dict_users[i])
 
 
     for iter in range(args.epochs):
@@ -349,28 +332,9 @@ if __name__ == '__main__':
         m = max(int(args.frac * args.num_users), 1)
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
         print('选取的客户端编号', idxs_users)
-        '''
-        for key, value in index_dict.items():
-
-            print("Key:", key)
-            print("Values:")
-            for v in value:
-                print(v)
-            print("-----")
-        '''
         acc_total = 0
 
         for idx in idxs_users:
-            '''
-             for cluster_id,cluster_list in cluster_dict.items():
-                if idx in cluster_list:
-                    c_id = cluster_id
-                    break
-            # '''
-            # [0.0312, 0.0631, 0.0410, 0.0540, 0.3628, 0.0431, 0.0555, 0.0491, 0.0393,
-            #  0.2608]
-            # [0.0368, 0.0650, 0.0476, 0.1223, 0.2539, 0.0467, 0.0599, 0.0527, 0.0447,
-            #  0.2704]
             args.lr = learning_rate[idx]
             local = user_local_dict[idx]
             # local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[idx], test_idxs=test_dict_users[idx])
@@ -387,6 +351,7 @@ if __name__ == '__main__':
         tensor_list = [item[0] for item in allclient_distributed]
         # print("传入聚类的数据",tensor_list)
         w_global_dict, index_dict = NewFedBa(w_locals, tensor_list, args.maxcluster)
+        print('加密的模型聚类后聚合结束')
         # 这里返回的index_dict 代表的id是tensor_list内的索引，而真实的客户端id是idxs_users
         # 也就是说如果要取到真实的客户端id，需要取cid=idxs_users[id]
         # print("通过软标签聚类的全局模型聚合完毕")
@@ -418,15 +383,15 @@ if __name__ == '__main__':
         print('Round {:3d}, Average loss {:.3f}'.format(iter, loss_avg))
         loss_train.append(loss_avg)
 
-        rootpath = './logbefor'
+        rootpath = './DPlog'
         if not os.path.exists(rootpath):
             os.makedirs(rootpath)
-        accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}.dat'.
-                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu), "w")
-        accfile1 = open(rootpath + '/loss_file_fed_{}_{}_{}_iid{}_{}_{}_{}.dat'.
-                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu), "w")
-        accfile2 = open(rootpath + '/acc_client_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}.dat'.
-                        format(args.dataset, args.model, args.epochs, args.iid, args.lr, args.local_bs,args.beizhu), "w")
+        accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
+                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon), "w")
+        accfile1 = open(rootpath + '/loss_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
+                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon), "w")
+        accfile2 = open(rootpath + '/acc_client_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
+                        format(args.dataset, args.model, args.epochs, args.iid, args.lr, args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon), "w")
         for ac in acc_test:
             sac = str(ac)
             accfile.write(sac)
@@ -447,7 +412,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(range(len(acc_client)), acc_client)
     plt.ylabel('test accuracy')
-    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc_client_{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs,args.beizhu))
+    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc_client_{}_{}_{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon))
 
 
 
