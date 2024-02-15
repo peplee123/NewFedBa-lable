@@ -13,7 +13,7 @@ import random
 from utils.sampling import noniid, build_noniid,build_noniid_agnews, separate_data
 from utils.options import args_parser
 from utils.dataset import CustomAGNewsDataset
-from models.Update import DatasetSplit, LocalUpdateDPSerial, LocalUpdateDP
+from models.Update import DatasetSplit, LocalUpdate
 from models.Nets import LeNet5Cifar,LeNet5Fmnist,resnet18,MLP, CNNMnist, CNNCifar, CNNFemnist, fastText, CNNTinyImage, CNNCifar100,ResNet9
 from models.Fed import FedAvg,FedBa, NewFedBa
 from models.test import test_img
@@ -293,13 +293,7 @@ if __name__ == '__main__':
         net_glob = LeNet5Cifar(num_classes=10).to(args.device)
     else:
         exit('Error: unrecognized model')
-    # use opacus to wrap model to clip per sample gradient
-    if args.dp_mechanism != 'no_dp':
-        net_glob = GradSampleModule(net_glob)
-    print(net_glob)
     net_glob.train()
-
-    # w_glob = net_glob.state_dict()
     w_glob = copy.deepcopy(net_glob)
 
     # training
@@ -319,11 +313,14 @@ if __name__ == '__main__':
     user_local_dict = {}
 
     for i in range(args.num_users):
-        if args.serial:
-            print("DPS")
-            user_local_dict[i] = LocalUpdateDPSerial(args=args, dataset=dataset_train, idxs=train_dict_users[i], test_idxs=test_dict_users[i])
-        else:
-            user_local_dict[i] = LocalUpdateDP(args=args, dataset=dataset_train, idxs=train_dict_users[i], test_idxs=test_dict_users[i])
+        user_local_dict[i] = LocalUpdate(args=args, dataset=dataset_train, idxs=train_dict_users[i],
+                                         test_idxs=test_dict_users[i])
+    # for i in range(args.num_users):
+    #     if args.serial:
+    #         print("DPS")
+    #         user_local_dict[i] = LocalUpdateDPSerial(args=args, dataset=dataset_train, idxs=train_dict_users[i], test_idxs=test_dict_users[i])
+    #     else:
+    #         user_local_dict[i] = LocalUpdateDP(args=args, dataset=dataset_train, idxs=train_dict_users[i], test_idxs=test_dict_users[i])
 
 
     for iter in range(args.epochs):
@@ -351,7 +348,6 @@ if __name__ == '__main__':
         tensor_list = [item[0] for item in allclient_distributed]
         # print("传入聚类的数据",tensor_list)
         w_global_dict, index_dict = NewFedBa(w_locals, tensor_list, args.maxcluster)
-        print('加密的模型聚类后聚合结束')
         # 这里返回的index_dict 代表的id是tensor_list内的索引，而真实的客户端id是idxs_users
         # 也就是说如果要取到真实的客户端id，需要取cid=idxs_users[id]
         # print("通过软标签聚类的全局模型聚合完毕")
@@ -386,12 +382,12 @@ if __name__ == '__main__':
         rootpath = './DPlog'
         if not os.path.exists(rootpath):
             os.makedirs(rootpath)
-        accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
-                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon), "w")
-        accfile1 = open(rootpath + '/loss_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
-                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon), "w")
-        accfile2 = open(rootpath + '/acc_client_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}_{}.dat'.
-                        format(args.dataset, args.model, args.epochs, args.iid, args.lr, args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon), "w")
+        accfile = open(rootpath + '/acc_cluster_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}.dat'.
+                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.sigam), "w")
+        accfile1 = open(rootpath + '/loss_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}.dat'.
+                       format(args.dataset, args.model, args.epochs, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.sigam), "w")
+        accfile2 = open(rootpath + '/acc_client_avg_file_fed_{}_{}_{}_iid{}_{}_{}_{}_{}.dat'.
+                        format(args.dataset, args.model, args.epochs, args.iid, args.lr, args.local_bs,args.beizhu,args.dp_mechanism,args.sigam), "w")
         for ac in acc_test:
             sac = str(ac)
             accfile.write(sac)
@@ -412,7 +408,7 @@ if __name__ == '__main__':
     plt.figure()
     plt.plot(range(len(acc_client)), acc_client)
     plt.ylabel('test accuracy')
-    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc_client_{}_{}_{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs,args.beizhu,args.dp_mechanism,args.dp_epsilon))
+    plt.savefig(rootpath + '/fed_{}_{}_{}_C{}_iid{}_{}_{}_acc_client_{}_{}.png'.format(args.dataset, args.model, args.epochs, args.frac, args.iid,args.lr,args.local_bs,args.beizhu,args.sigam))
 
 
 
